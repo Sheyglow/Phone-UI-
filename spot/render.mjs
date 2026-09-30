@@ -30,7 +30,11 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
 await page.goto(pathToFileURL(path.join(here, 'kinly-spot.html')).href + (endOnly ? '?render&end' : '?render'));
 await page.evaluate(async () => {
-  await document.fonts.ready;
+  // fail loudly instead of silently rendering in a fallback face
+  const faces = ['600 190px Fraunces', 'italic 500 90px Fraunces', '600 22px Figtree', '500 30px Figtree'];
+  await Promise.all(faces.map(f => document.fonts.load(f)));
+  const loaded = [...document.fonts].filter(f => f.status === 'loaded').map(f => f.family.replace(/['"]/g, ''));
+  for (const fam of ['Fraunces', 'Figtree']) if (!loaded.includes(fam)) throw new Error(`font ${fam} did not load`);
   const urls = [...document.querySelectorAll('[style*="url("]')].map(el => el.style.backgroundImage.slice(5, -2));
   await Promise.all(urls.map(u => new Promise(r => { const i = new Image(); i.onload = i.onerror = r; i.src = u; })));
 });

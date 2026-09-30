@@ -21,3 +21,5 @@ I'd like to take on the Kinly launch spot. Before replying, I made a short sampl
 [After reviewing the redacted storyboard and script: one line on the complexity you saw in it]
 
 [Name]
+
+*Music in the sample: "Familiar Roads" by Tanner Helland (tannerhelland.com), CC BY 4.0.*

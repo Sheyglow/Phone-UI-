@@ -6,7 +6,8 @@ the screen don't pull the corners), and intersects those lines to get a sharp
 quad. A second pass rejects outliers and smooths the corners over time.
 
 Usage: python3 spot/track.py            # tracks every clip in CLIPS
-Writes footage/tracks/<clip>.json with per-frame corners [TL, TR, BR, BL].
+Writes footage/tracks/<clip>.json with per-frame corners [TL, TR, BR, BL],
+plus the fingertip path on the couch clip (drives the chat scroll).
 """
 import json
 import os
@@ -165,7 +166,52 @@ def track_clip(name, n_screens, thresh):
     print(f'{name}: {len(raw)} frames, {missing} undetected, fps {fps:.3f}')
 
 
+
+
+def track_finger(name, out_h=2000):
+    """Fingertip over the screen, in screen space (x 0..1000, y 0..out_h).
+
+    Uses the tracked quad to rectify each frame, then takes the leftmost point of
+    the non-green blob entering from the screen's right edge. Writes
+    footage/tracks/<clip>-finger.json with [t, x, y] rows (null when no finger).
+    """
+    corners = json.load(open(os.path.join(ROOT, 'footage', 'tracks', name + '.json')))
+    fps = corners['fps']
+    quads = np.array(corners['corners'])[:, 0]
+    cap = cv2.VideoCapture(os.path.join(ROOT, 'footage', name + '.mp4'))
+    dst = np.float32([[0, 0], [1000, 0], [1000, out_h], [0, out_h]])
+    rows = []
+    for i in range(len(quads)):
+        ok, frame = cap.read()
+        if not ok:
+            break
+        M = cv2.getPerspectiveTransform(quads[i].astype(np.float32), dst)
+        rect = cv2.warpPerspective(frame, M, (1000, out_h))
+        occ = (green_dominance(rect) < 15).astype(np.uint8)
+        occ[:, :20] = 0
+        occ[:20] = 0
+        occ[-20:] = 0
+        n, lab, st, _ = cv2.connectedComponentsWithStats(occ)
+        best = None
+        for k in range(1, n):
+            x, y, w, h, a = st[k]
+            if x + w >= 985 and a > 1500 and (best is None or a > st[best][4]):
+                best = k
+        if best is None:
+            rows.append([round(i / fps, 3), None, None])
+            continue
+        ys, xs = np.nonzero(lab == best)
+        j = np.argmin(xs)
+        rows.append([round(i / fps, 3), int(xs[j]), int(ys[j])])
+    out = os.path.join(ROOT, 'footage', 'tracks', name + '-finger.json')
+    with open(out, 'w') as f:
+        json.dump({'fps': fps, 'screen': [1000, out_h], 'tip': rows}, f)
+    print(f'{name}: fingertip tracked over {len(rows)} frames')
+
+
 if __name__ == '__main__':
     names = sys.argv[1:] or list(CLIPS)
     for name in names:
         track_clip(name, *CLIPS[name])
+    if 'gs-couch-evening' in names:
+        track_finger('gs-couch-evening')

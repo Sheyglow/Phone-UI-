@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kinly Chat Extension</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  /* Continues screens/05-chat.webp below "I'm in. Save me a seat." at the same 924px scale.
+     Measured from the supplied screen: 36/52 text, 38px side margins, 39/28 bubble padding,
+     20px gaps, 50px bubble radius with one tight corner. */
+  :root {
+    --bg: #140f1f;
+    --in: #2c2540;
+    --coral: #ff5b4e;
+    --apricot: #ff7a55;
+    --cream: #fff4ed;
+    --lilac: #a89db7;
+    --ui: "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+  html, body { margin: 0; background: var(--bg); }
+  #chat { width: 924px; padding: 20px 38px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; font: 400 36px/52px var(--ui); color: var(--cream); }
+  .in, .out { max-width: 644px; box-sizing: border-box; padding: 28px 39px; border-radius: 50px; }
+  .in { align-self: flex-start; background: var(--in); border-bottom-left-radius: 12px; }
+  .out { align-self: flex-end; background: linear-gradient(100deg, var(--coral), var(--apricot)); border-bottom-right-radius: 12px; }
+  .media { align-self: flex-start; position: relative; border-radius: 44px; border-bottom-left-radius: 12px; overflow: hidden; background: var(--in); }
+  .media canvas { display: block; }
+  .play { position: absolute; left: 50%; top: 50%; width: 118px; height: 118px; margin: -59px 0 0 -59px; border-radius: 50%;
+          background: rgba(20, 15, 31, .45); border: 3px solid rgba(255, 244, 237, .85); backdrop-filter: blur(6px); }
+  .play::after { content: ""; position: absolute; left: 46px; top: 34px; border-left: 40px solid var(--cream); border-top: 24px solid transparent; border-bottom: 24px solid transparent; }
+  .dur { position: absolute; left: 26px; bottom: 24px; padding: 6px 18px; border-radius: 30px; background: rgba(20, 15, 31, .6); font: 500 26px/36px var(--ui); color: var(--cream); }
+  .caption { position: absolute; left: 0; right: 0; bottom: 0; padding: 60px 30px 24px; font: 500 26px/34px var(--ui); color: var(--cream);
+             background: linear-gradient(transparent, rgba(12, 8, 18, .75)); }
+  .read { align-self: flex-end; margin-top: -4px; font: 400 28px/36px var(--ui); color: var(--lilac); }
+</style>
+</head>
+<body>
+<div id="chat">
+  <div class="in">Saved. This was us last Friday.</div>
+  <div class="media"><canvas id="photo" width="560" height="700"></canvas><div class="caption">Shot on Portra 400</div></div>
+  <div class="media"><canvas id="video" width="560" height="360"></canvas><div class="play"></div><div class="dur">0:14</div></div>
+  <div class="in">The drummer's a friend. Wait till you hear the second set.</div>
+  <div class="out">Okay, that's unreal.</div>
+  <div class="out">Bringing my camera.</div>
+  <div class="in">Come at 7:45. We'll grab a table by the stage.</div>
+  <div class="out">See you there.</div>
+  <div class="read">Read</div>
+</div>
+<script>
+// Photos in the same abstract bokeh style as the supplied profile photo. Seeded, so renders repeat.
+function rng(s) { return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function paint(id, seed, base, lights, haze) {
+  const c = document.getElementById(id), g = c.getContext('2d'), W = c.width, H = c.height, r = rng(seed);
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  base.forEach(([o, col]) => bg.addColorStop(o, col));
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  // stage haze
+  const [hx, hy, hr, hcol] = haze;
+  const hz = g.createRadialGradient(W * hx, H * hy, 0, W * hx, H * hy, W * hr);
+  hz.addColorStop(0, hcol); hz.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = hz; g.fillRect(0, 0, W, H);
+  // bokeh
+  g.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 26; i++) {
+    const x = r() * W, y = r() * H * .75, rad = 14 + Math.pow(r(), 2) * 90, col = lights[Math.floor(r() * lights.length)];
+    const b = g.createRadialGradient(x, y, 0, x, y, rad);
+    b.addColorStop(0, col.replace('A', .55)); b.addColorStop(.7, col.replace('A', .35)); b.addColorStop(1, col.replace('A', 0));
+    g.fillStyle = b; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+  }
+  g.globalCompositeOperation = 'source-over';
+  // film grain + vignette
+  const d = g.getImageData(0, 0, W, H), p = d.data;
+  for (let i = 0; i < p.length; i += 4) {
+    const n = (r() - .5) * 26, x = (i / 4) % W, y = Math.floor(i / 4 / W);
+    const v = 1 - .45 * (((x / W - .5) ** 2) + ((y / H - .5) ** 2)) * 2;
+    p[i] = (p[i] + n) * v; p[i + 1] = (p[i + 1] + n) * v; p[i + 2] = (p[i + 2] + n) * v;
+  }
+  g.putImageData(d, 0, 0);
+}
+paint('photo', 11,
+  [[0, '#3a1830'], [.55, '#6b2a3c'], [1, '#1a0f1c']],
+  ['rgba(255,180,123,A)', 'rgba(255,122,85,A)', 'rgba(255,214,170,A)', 'rgba(214,90,120,A)'],
+  [.42, .38, .7, 'rgba(255,170,110,.55)']);
+paint('video', 29,
+  [[0, '#1d1438'], [.6, '#3b1f4f'], [1, '#140f1f']],
+  ['rgba(140,120,255,A)', 'rgba(255,122,85,A)', 'rgba(230,110,190,A)', 'rgba(120,170,255,A)'],
+  [.6, .3, .8, 'rgba(170,110,255,.45)']);
+</script>
+</body>
+</html>

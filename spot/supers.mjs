@@ -1,9 +1,10 @@
-// Renders on-screen titles as transparent 1920x1080 PNG layers for spot/edit.py.
+// Renders on-screen titles as transparent 1920x1080 PNG layers for spot/edit.py,
+// plus the chat messages revealed when the finger scrolls the chat (spot/chat-extension.html).
 // Usage: node spot/supers.mjs
 import { createRequire } from 'node:module';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
@@ -32,15 +33,30 @@ const css = `
   .mid { font: 500 italic 78px/1.05 Fraunces, Georgia, serif; text-wrap: balance; }
 `;
 
+// fonts are embedded in fonts.css (data URIs), so they load without the network
+const fontsCss = readFileSync(path.join(here, 'fonts', 'fonts.css'), 'utf8');
+
+// fail loudly instead of silently rendering in a fallback face
+async function fontsLoaded(page, faces) {
+  await page.evaluate(async faces => {
+    await Promise.all(faces.map(f => document.fonts.load(f)));
+    const missing = faces.filter(f => ![...document.fonts].some(ff => ff.status === 'loaded' && f.includes(ff.family)));
+    if (missing.length) throw new Error('fonts not loaded: ' + missing.join(', '));
+  }, faces);
+}
+
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 for (const [id, s] of Object.entries(SUPERS)) {
   await page.setContent(`<!doctype html><html><head>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,500&family=Figtree:wght@700&display=swap">
-    <style>${css}</style></head><body><div class="block" style="${s.pos}">${s.html}</div></body></html>`);
-  await page.evaluate(() => document.fonts.ready);
-  await page.waitForFunction(() => document.fonts.check('italic 500 40px Fraunces'));
+    <style>${fontsCss}${css}</style></head><body><div class="block" style="${s.pos}">${s.html}</div></body></html>`);
+  await fontsLoaded(page, ['italic 500 40px Fraunces', '700 22px Figtree']);
   await page.screenshot({ path: path.join(outDir, id + '.png'), omitBackground: true });
 }
+// chat messages that continue below the supplied chat screen (revealed by the finger scroll)
+await page.setViewportSize({ width: 924, height: 2400 });
+await page.goto(pathToFileURL(path.join(here, 'chat-extension.html')).href);
+await fontsLoaded(page, ['400 36px Inter', '500 26px Inter']);
+await page.locator('#chat').screenshot({ path: path.join(here, 'build', 'chat-extension.png') });
 await browser.close();
-console.log('supers written to', outDir);
+console.log('supers and chat extension written to', path.join(here, 'build'));
