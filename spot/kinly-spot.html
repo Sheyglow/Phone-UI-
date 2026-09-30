@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kinly Launch Spot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500&family=Figtree:wght@500;600;700&display=swap">
+<style>
+  /* 1920x1080 stage. Every frame is a pure function of t (see renderAt), so renders are repeatable. */
+  :root {
+    --night: #140f1f;
+    --surface: #231a32;
+    --coral: #ff5b4e;
+    --apricot: #ff7a55;
+    --peach: #ffb47b;
+    --cream: #fff4ed;
+    --lilac: #a89db7;
+    --display: "Fraunces", Georgia, serif;
+    --body: "Figtree", "Helvetica Neue", Arial, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #viewport { position: absolute; inset: 0; display: grid; place-items: center; }
+  #stage {
+    position: relative; width: 1920px; height: 1080px; overflow: hidden;
+    background: var(--night); transform-origin: center; flex: none;
+  }
+  canvas { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+  #grain { mix-blend-mode: overlay; opacity: .12; }
+
+  /* Phone */
+  #cam { position: absolute; inset: 0; perspective: 2600px; perspective-origin: 50% 45%; }
+  #phone {
+    position: absolute; left: 0; top: 0;
+    width: 404px; height: 842px; margin: -421px 0 0 -202px;
+    border-radius: 64px; transform-style: preserve-3d; will-change: transform;
+    background: linear-gradient(145deg, #3a3346 0%, #17131f 45%, #2b2535 100%);
+    box-shadow:
+      0 0 0 1.5px rgba(255,255,255,.10) inset,
+      0 0 0 3px #0c0a11 inset,
+      0 60px 120px -20px rgba(0,0,0,.75),
+      0 30px 60px -30px rgba(0,0,0,.8);
+  }
+  .btn { position: absolute; width: 4px; background: #2a2433; border-radius: 3px; }
+  .btn.l1 { left: -3px; top: 170px; height: 34px; }
+  .btn.l2 { left: -3px; top: 230px; height: 64px; }
+  .btn.l3 { left: -3px; top: 306px; height: 64px; }
+  .btn.r1 { right: -3px; top: 250px; height: 100px; }
+  #screen {
+    position: absolute; left: 12px; top: 12px; width: 380px; height: 818px;
+    border-radius: 53px; overflow: hidden; background: var(--night);
+    transform: translateZ(0);
+  }
+  .layer {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    background-size: 100% 100%; will-change: transform, opacity;
+  }
+  #island {
+    position: absolute; left: 50%; top: 11px; width: 108px; height: 31px; margin-left: -54px;
+    background: #000; border-radius: 20px; z-index: 5;
+  }
+  #glare {
+    position: absolute; inset: 0; z-index: 6; pointer-events: none; mix-blend-mode: screen;
+    background: linear-gradient(112deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.13) 46%, rgba(255,255,255,.03) 52%, rgba(255,255,255,0) 64%);
+    background-size: 300% 100%;
+  }
+  #heartPulse {
+    position: absolute; z-index: 4; border-radius: 50%;
+    left: 40.26%; top: 87%; width: 19.48%; height: 8.95%;
+    background-size: 513.3% 1117.3%; background-position: 50% 95.6%;
+    opacity: 0;
+  }
+  .tap {
+    position: absolute; z-index: 7; width: 74px; height: 74px; margin: -37px 0 0 -37px;
+    border-radius: 50%; border: 3px solid rgba(255,244,237,.9);
+    background: rgba(255,244,237,.18); opacity: 0;
+  }
+
+  /* Type */
+  .super { position: absolute; color: var(--cream); will-change: transform, opacity, filter; }
+  .label {
+    font: 600 22px/1 var(--body); letter-spacing: .28em; text-transform: uppercase; color: var(--peach);
+  }
+  .big { font: 500 italic 92px/1.02 var(--display); letter-spacing: -.01em; }
+  .mid { font: 500 italic 76px/1.06 var(--display); letter-spacing: -.005em; text-wrap: balance; }
+  .sub { font: 500 30px/1.4 var(--body); color: var(--lilac); }
+  #open { left: 0; right: 0; top: 330px; text-align: center; }
+  #open div { opacity: 0; }
+  #s2 { left: 1080px; top: 400px; width: 700px; }
+  #s3 { left: 1180px; top: 420px; width: 620px; }
+  #s4 { left: 170px; top: 390px; width: 700px; }
+  #s6 { left: 150px; top: 400px; width: 720px; }
+  .super > * + * { margin-top: 22px; }
+
+  #end { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; }
+  #rings { width: 250px; height: 150px; overflow: visible; }
+  #rings circle { fill: none; stroke-width: 17; stroke-linecap: round; }
+  #word { font: 600 190px/1 var(--display); color: var(--cream); letter-spacing: -.02em; margin-top: 18px; }
+  #tag { font: 500 40px/1.2 var(--body); color: var(--lilac); margin-top: 26px; }
+  #soon { margin-top: 56px; }
+  #end > * { opacity: 0; }
+
+  #vignette {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 75% 70% at 50% 48%, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%);
+  }
+  #flash { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: 0;
+    background: radial-gradient(ellipse 60% 70% at 50% 50%, rgba(255,122,85,.55), rgba(255,91,78,0) 70%); }
+  #black { position: absolute; inset: 0; background: #000; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="viewport">
+<div id="stage">
+  <canvas id="bg" width="1920" height="1080"></canvas>
+
+  <div id="cam">
+    <div id="phone">
+      <i class="btn l1"></i><i class="btn l2"></i><i class="btn l3"></i><i class="btn r1"></i>
+      <div id="screen">
+        <div class="layer" id="L0" style="background-image:url(../screens/01-welcome.webp)"></div>
+        <div class="layer" id="L1" style="background-image:url(../screens/02-intent.webp)"></div>
+        <div class="layer" id="L2" style="background-image:url(../screens/03-discover.webp)"></div>
+        <div class="layer" id="L3" style="background-image:url(../screens/04-match.webp)"></div>
+        <div class="layer" id="L4" style="background-image:url(../screens/05-chat.webp)"></div>
+        <div id="heartPulse" style="background-image:url(../screens/03-discover.webp)"></div>
+        <div class="tap" id="tap"></div>
+        <div id="island"></div>
+        <div id="glare"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="open" class="super">
+    <div class="big">Date.</div>
+    <div class="big">Make friends.</div>
+    <div class="big">Or both.</div>
+  </div>
+  <div id="s2" class="super">
+    <div class="label">Meet Kinly</div>
+    <div class="mid">Dating and friends, in one app.</div>
+  </div>
+  <div id="s3" class="super">
+    <div class="label">You choose</div>
+    <div class="mid">Dating, friends, or both.</div>
+    <div class="sub">Switch whenever you like.</div>
+  </div>
+  <div id="s4" class="super">
+    <div class="label">Discover</div>
+    <div class="mid">Matched on what you actually love.</div>
+  </div>
+  <div id="s6" class="super">
+    <div class="label">Make plans</div>
+    <div class="mid">From first message to Friday night.</div>
+  </div>
+
+  <div id="end">
+    <svg id="rings" viewBox="0 0 250 150" aria-hidden="true">
+      <circle id="r1" cx="92" cy="75" r="58" stroke="#ff5b4e"/>
+      <circle id="r2" cx="158" cy="75" r="58" stroke="#ffb47b"/>
+    </svg>
+    <div id="word">kinly</div>
+    <div id="tag">Find your people.</div>
+    <div id="soon" class="label">Launching soon</div>
+  </div>
+
+  <div id="flash"></div>
+  <canvas id="grain" width="1920" height="1080"></canvas>
+  <div id="vignette"></div>
+  <div id="black"></div>
+</div>
+</div>
+
+<script>
+const DURATION = 28;
+const W = 1920, H = 1080, SW = 380, SH = 818;
+const $ = id => document.getElementById(id);
+
+// ---------- easing + helpers ----------
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const easeOut = k => 1 - Math.pow(1 - k, 3);
+const ramp = (t, a, b) => clamp((t - a) / (b - a));
+// visible between in-start..in-end, fade out out-start..out-end
+const window4 = (t, a, b, c, d) => Math.min(easeOut(ramp(t, a, b)), 1 - ease(ramp(t, c, d)));
+
+// ---------- camera keyframes ----------
+// s: scale, cx/cy: focus point on the screen (0..1), px/py: where that point lands in frame,
+// rx/ry/rz: rotation in degrees, o: phone opacity
+const K = [
+  [0,    { s: .92, cx: .5, cy: .5,  px: 960,  py: 1620, rx: 20, ry: -24, rz: 5,   o: 1 }],
+  [3.3,  { s: .92, cx: .5, cy: .5,  px: 960,  py: 1620, rx: 20, ry: -24, rz: 5,   o: 1 }],
+  [4.8,  { s: 1,   cx: .5, cy: .5,  px: 740,  py: 540,  rx: 6,  ry: -16, rz: 1.5, o: 1 }],
+  [6.5,  { s: 1.04,cx: .5, cy: .5,  px: 750,  py: 540,  rx: 4,  ry: -10, rz: .5,  o: 1 }],
+  [7.8,  { s: 1.9, cx: .5, cy: .56, px: 700,  py: 560,  rx: 2,  ry: -6,  rz: 0,   o: 1 }],
+  [9.8,  { s: 2.0, cx: .5, cy: .6,  px: 700,  py: 560,  rx: 1,  ry: -3,  rz: 0,   o: 1 }],
+  [10.7, { s: 1.04,cx: .5, cy: .5,  px: 760,  py: 540,  rx: 3,  ry: -6,  rz: 0,   o: 1 }],
+  [11.9, { s: 1.02,cx: .5, cy: .5,  px: 1180, py: 540,  rx: 4,  ry: 13,  rz: -1.5,o: 1 }],
+  [14.3, { s: 1.08,cx: .5, cy: .52, px: 1160, py: 540,  rx: 2,  ry: 6,   rz: -.5, o: 1 }],
+  [15.4, { s: 1.02,cx: .5, cy: .5,  px: 960,  py: 540,  rx: 0,  ry: 0,   rz: 0,   o: 1 }],
+  [18.0, { s: 1.07,cx: .5, cy: .5,  px: 960,  py: 540,  rx: 0,  ry: 0,   rz: 0,   o: 1 }],
+  [19.4, { s: 1.75,cx: .5, cy: .3,  px: 1220, py: 540,  rx: 3,  ry: -9,  rz: 0,   o: 1 }],
+  [22.8, { s: 1.8, cx: .52,cy: .6,  px: 1220, py: 540,  rx: 1,  ry: -4,  rz: 0,   o: 1 }],
+  [24.3, { s: .72, cx: .5, cy: .5,  px: 960,  py: 600,  rx: 14, ry: 0,   rz: 0,   o: 0 }],
+  [28,   { s: .72, cx: .5, cy: .5,  px: 960,  py: 600,  rx: 14, ry: 0,   rz: 0,   o: 0 }],
+];
+function camAt(t) {
+  let i = 0;
+  while (i < K.length - 2 && t > K[i + 1][0]) i++;
+  const [t0, a] = K[i], [t1, b] = K[i + 1];
+  const k = ease(ramp(t, t0, t1));
+  const out = {};
+  for (const key in a) out[key] = lerp(a[key], b[key], k);
+  return out;
+}
+
+// ---------- screen layers ----------
+// [from, to, style] transitions between consecutive screens
+function screensAt(t) {
+  const L = [1, 0, 0, 0, 0].map(o => ({ o, x: 0, y: 0, s: 1 }));
+  // welcome -> intent (push from right)
+  let k = ease(ramp(t, 6.7, 7.2));
+  L[0].x = -30 * k; L[0].o = 1 - k * .6; L[1].x = 100 * (1 - k); L[1].o = k ? 1 : 0;
+  // intent -> discover (crossfade)
+  k = ease(ramp(t, 10.9, 11.35));
+  L[2].o = k; L[2].s = lerp(1.04, 1, k);
+  // discover -> match (bloom in)
+  k = ease(ramp(t, 14.85, 15.3));
+  L[3].o = k; L[3].s = lerp(1.08, 1, k);
+  // match -> chat (push from right)
+  k = ease(ramp(t, 18.45, 18.95));
+  L[4].x = 100 * (1 - k); L[4].o = k ? 1 : 0; L[3].x = -30 * k;
+  return L;
+}
+
+// Taps: time, x%, y% on the screen
+const TAPS = [[6.3, 50, 82], [8.3, 50, 56.2], [10.75, 50, 90.2], [14.45, 50, 91.5], [18.15, 50, 82.2]];
+
+// ---------- background: bokeh + glows ----------
+const bg = $('bg').getContext('2d');
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+const sprite = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(.62, 'rgba(255,255,255,.85)');
+  grd.addColorStop(.78, 'rgba(255,255,255,.35)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+  return c;
+})();
+const tint = {};
+function tinted(hex) {
+  if (tint[hex]) return tint[hex];
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.drawImage(sprite, 0, 0); g.globalCompositeOperation = 'source-in';
+  g.fillStyle = hex; g.fillRect(0, 0, 256, 256);
+  return (tint[hex] = c);
+}
+const R = rng(7);
+const COOL = ['#c45a8a', '#8a5cc7', '#ff8a6a', '#e8a37c', '#6f7fd6'];
+const WARM = ['#ff5b4e', '#ff7a55', '#ffb47b', '#ffcf9e', '#ff8a6a'];
+const BOKEH = Array.from({ length: 46 }, () => ({
+  x: R() * 2200 - 140, y: R() * 1240 - 80, r: 18 + Math.pow(R(), 2.2) * 150,
+  a: .05 + R() * .16, depth: .3 + R() * .9, drift: (R() - .5) * 14, ph: R() * 6.28, ci: Math.floor(R() * 5),
+}));
+
+function drawBg(t, cam, warm) {
+  bg.globalCompositeOperation = 'source-over';
+  bg.globalAlpha = 1;
+  bg.fillStyle = '#140f1f'; bg.fillRect(0, 0, W, H);
+  // atmospheric glows
+  const glow = (x, y, r, col, a) => {
+    const g = bg.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, col.replace('A', a)); g.addColorStop(1, col.replace('A', 0));
+    bg.fillStyle = g; bg.fillRect(0, 0, W, H);
+  };
+  const pull = (cam.px - 960) * .25;
+  glow(960 + pull, 470, 950, 'rgba(92,34,78,A)', .85);
+  glow(1500 - pull * .5, 950, 800, 'rgba(58,30,92,A)', .6);
+  glow(cam.px, cam.py, 700, 'rgba(255,91,78,A)', .10 + warm * .32);
+  // bokeh, parallax against the camera move
+  bg.globalCompositeOperation = 'screen';
+  for (const b of BOKEH) {
+    const x = b.x + b.drift * t - (cam.ry * 9 + (cam.px - 960) * .18) * b.depth;
+    const y = b.y - t * 6 * b.depth + Math.sin(t * .35 + b.ph) * 10 + (cam.rx * 5) * b.depth;
+    const col = warm > .5 ? WARM[b.ci] : COOL[b.ci];
+    const tw = .75 + .25 * Math.sin(t * .8 + b.ph * 3);
+    bg.globalAlpha = b.a * tw * (1 + warm * .6);
+    const r = b.r * (1 + (cam.s - 1) * .12 * b.depth);
+    bg.drawImage(tinted(col), x - r, y - r, r * 2, r * 2);
+  }
+  bg.globalAlpha = 1;
+  bg.globalCompositeOperation = 'source-over';
+}
+
+// ---------- film grain ----------
+const grainCtx = $('grain').getContext('2d');
+const tiles = Array.from({ length: 6 }, (_, n) => {
+  const c = document.createElement('canvas'); c.width = c.height = 384;
+  const g = c.getContext('2d'); const d = g.createImageData(384, 384); const r = rng(101 + n * 31);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const v = 128 + (r() - .5) * 120; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255;
+  }
+  g.putImageData(d, 0, 0); return c;
+});
+function drawGrain(frame) {
+  const tile = tiles[frame % tiles.length];
+  const ox = (frame * 97) % 384, oy = (frame * 57) % 384;
+  grainCtx.fillStyle = grainCtx.createPattern(tile, 'repeat');
+  grainCtx.save(); grainCtx.translate(-ox, -oy); grainCtx.fillRect(0, 0, W + 384, H + 384); grainCtx.restore();
+}
+
+// ---------- supers ----------
+function superStyle(el, v, rise = 26) {
+  el.style.opacity = v;
+  el.style.transform = `translateY(${(1 - v) * rise}px)`;
+  el.style.filter = v < 1 ? `blur(${(1 - v) * 10}px)` : 'none';
+}
+
+// ---------- main render ----------
+const phone = $('phone'), layers = [0, 1, 2, 3, 4].map(i => $('L' + i));
+function renderAt(t) {
+  const frame = Math.round(t * 30);
+  const cam = camAt(t);
+  const warm = window4(t, 14.6, 15.4, 18.6, 19.6);
+
+  drawBg(t, cam, warm);
+  drawGrain(frame);
+
+  // phone transform: land the focus point (cx,cy) at (px,py)
+  const dx = (cam.cx - .5) * SW, dy = (cam.cy - .5) * SH;
+  const float = Math.sin(t * 1.1) * 4;
+  phone.style.transform =
+    `translate3d(${cam.px}px, ${cam.py + float}px, 0) rotateX(${cam.rx}deg) rotateY(${cam.ry}deg) rotateZ(${cam.rz}deg) scale(${cam.s}) translate(${-dx}px, ${-dy}px)`;
+  phone.style.opacity = cam.o;
+
+  screensAt(t).forEach((st, i) => {
+    layers[i].style.opacity = st.o;
+    layers[i].style.transform = `translate(${st.x}%, ${st.y}%) scale(${st.s})`;
+  });
+  // glare follows the phone's yaw, like a light source fixed in the room
+  $('glare').style.backgroundPosition = `${50 + cam.ry * 3.2 + cam.rx * 1.5}% 0`;
+
+  // heart press on Discover
+  const hp = t > 14.4 && t < 14.8 ? Math.sin(Math.PI * ramp(t, 14.4, 14.8)) : 0;
+  $('heartPulse').style.opacity = hp ? 1 : 0;
+  $('heartPulse').style.transform = `scale(${1 + hp * .14})`;
+
+  // tap ripple
+  const tap = $('tap'); tap.style.opacity = 0;
+  for (const [tt, x, y] of TAPS) {
+    const k = ramp(t, tt - .12, tt + .45);
+    if (k > 0 && k < 1) {
+      tap.style.left = x + '%'; tap.style.top = y + '%';
+      tap.style.opacity = k < .2 ? k / .2 : 1 - (k - .2) / .8;
+      tap.style.transform = `scale(${.55 + easeOut(k) * .75})`;
+    }
+  }
+
+  // opening lines
+  const open = $('open').children;
+  const outK = 1 - ease(ramp(t, 3.0, 3.45));
+  [[.5, 1.1], [1.15, 1.75], [1.8, 2.4]].forEach(([a, b], i) => superStyle(open[i], Math.min(easeOut(ramp(t, a, b)), outK), 30));
+  $('open').style.transform = `scale(${1 + t * .01})`;
+
+  superStyle($('s2'), window4(t, 4.5, 5.3, 6.35, 6.8));
+  superStyle($('s3'), window4(t, 7.9, 8.7, 10.0, 10.5));
+  superStyle($('s4'), window4(t, 12.0, 12.8, 14.3, 14.8));
+  superStyle($('s6'), window4(t, 19.6, 20.4, 22.9, 23.5));
+
+  // end card
+  const end = $('end').children;
+  const ringK = ease(ramp(t, 24.0, 25.3));
+  const C = 2 * Math.PI * 58;
+  ['r1', 'r2'].forEach((id, i) => {
+    const c = $(id); c.style.strokeDasharray = C;
+    c.style.strokeDashoffset = C * (1 - ease(ramp(t, 24.0 + i * .2, 25.2 + i * .2)));
+    c.style.transform = `rotate(${-90 + i * 180}deg)`; c.style.transformOrigin = `${c.getAttribute('cx')}px 75px`;
+  });
+  end[0].style.opacity = ringK > 0 ? 1 : 0;
+  superStyle(end[1], easeOut(ramp(t, 24.7, 25.6)), 30);
+  superStyle(end[2], easeOut(ramp(t, 25.3, 26.1)), 20);
+  superStyle(end[3], easeOut(ramp(t, 25.8, 26.5)), 14);
+  $('end').style.transform = `scale(${1 + ramp(t, 24, 28) * .03})`;
+
+  $('flash').style.opacity = Math.sin(Math.PI * ramp(t, 14.75, 15.6)) * .9;
+  $('black').style.opacity = Math.max(1 - ease(ramp(t, 0, .7)), ease(ramp(t, 27.2, 28)));
+}
+window.renderAt = renderAt;
+window.DURATION = DURATION;
+
+// ---------- preview playback (skipped when rendering) ----------
+function fit() {
+  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  $('stage').style.transform = `scale(${s})`;
+}
+if (!location.search.includes('render')) {
+  addEventListener('resize', fit); fit();
+  const start = performance.now();
+  const loop = now => { renderAt(((now - start) / 1000) % DURATION); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+} else {
+  renderAt(0);
+}
+</script>
+</body>
+</html>
