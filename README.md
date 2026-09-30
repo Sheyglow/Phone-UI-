@@ -1,42 +1,60 @@
 # Kinly launch spot: pitch sample
 
-A 28-second, 16:9 motion sample for the *Cinematic App Launch Commercial* brief. It uses the five supplied Kinly app screens.
+A sample for the *Cinematic App Launch Commercial* brief: a 34-second, 16:9 spot for Kinly. It's cut from the supplied green-screen and b-roll footage, and the five supplied app screens are composited onto every phone.
 
-The brief treats phone-screen text as non-negotiable. For that reason, the screens in this sample are never generated or redrawn. Each one is the supplied image, composited onto a 3D phone with camera moves, glare and grain. Every label and message stays pixel-accurate and correctly spelled, even in close-ups.
+The brief treats phone-screen text as non-negotiable. For that reason, the app UI in this sample is never generated or redrawn. Each screen is the supplied image, perspective-pinned onto the tracked phone screen in every frame. Fingers and thumbs are keyed back in front of it, tracking markers are filled, and green spill is removed from skin and bezels. Every label and message stays exactly as supplied, including in close-ups.
 
-## Files
+## Deliverables
 
-| Path | What it is |
+| File | What it is |
 | --- | --- |
-| `output/kinly-launch-sample.mp4` | Rendered sample, 1920×1080, 30 fps, H.264 |
-| `output/stills/` | Key frames for a quick look or a thumbnail |
-| `spot/kinly-spot.html` | The composition. Open it in a browser to watch it loop live |
-| `spot/render.mjs` | Renders the composition frame by frame and encodes the MP4 |
-| `screens/` | The supplied app screens, numbered in flow order |
+| `output/kinly-launch-spot.mp4` | **The sample.** 1920×1080, 25 fps, H.264, about 34 s |
+| `output/kinly-ui-motion.mp4` | A 28 s motion-graphics cut of the same screens on a 3D phone, 30 fps |
+| `output/stills/` | Key frames from the spot |
+| `PITCH.md` | Draft reply to the brief |
 
-## Sequence
+## The cut
 
-| Time | Beat | Screen |
-| --- | --- | --- |
-| 0.0–3.4 | "Date. Make friends. Or both." over bokeh | none |
-| 3.3–6.8 | The phone rises into frame; tap on *Get started* | Welcome |
-| 6.7–10.9 | Push in on the *Both* card, then tap *Continue* | Step 2 of 4 |
-| 10.9–14.9 | Amara's profile; the heart button presses | Discover |
-| 14.9–18.5 | Warm light bloom; tap on *Send a message* | It's a match |
-| 18.5–23.5 | Slow tilt down the conversation to the Jazz Night card | Chat |
-| 23.5–28.0 | The logo rings draw in; wordmark and "Launching soon" | End card |
+| Time | Shot | Screen | Title |
+| --- | --- | --- | --- |
+| 0.0–3.6 | Friends on their phones (b-roll) | none | Date. Make friends. Or both. |
+| 3.6–10.0 | POV, phone on lap; the thumb taps *Get started* | Welcome, then Step 2 of 4 | Dating and friends, in one app. / Dating, friends, or both. |
+| 10.0–14.0 | Close-up, phone against autumn leaves | Discover (Amara) | none |
+| 14.0–17.0 | Reaction: someone smiling at their phone in a park | none | none |
+| 17.0–21.4 | Two people in a park, both phones matched | It's a match (on both phones) | Matched on what you both love. |
+| 21.4–24.4 | Friends on their phones (b-roll) | none | Build your circle. |
+| 24.4–30.0 | Evening on the couch, a finger on the chat | Chat with Amara | From first message to Friday night. |
+| 29.4–33.8 | End card: the rings draw in, wordmark, "Launching soon" | none | none |
 
-## Re-rendering
+Every shot goes through one grade: a plum lift in the shadows, warm highlights, soft contrast, a vignette and film grain. That way stock clips from different cameras cut together as one piece.
 
-You need Node with Playwright and Chromium, plus an ffmpeg build that includes libx264.
+## How it's built
+
+| Path | Role |
+| --- | --- |
+| `footage/` | Supplied clips, renamed by content. `footage/tracks/` holds the per-frame screen corners |
+| `screens/` | Supplied app screens, numbered in flow order |
+| `spot/track.py` | Keys each green screen, fits straight lines to its four edges (rounded corners, markers and fingers don't pull the corners) and smooths the corners over time |
+| `spot/composite.py` | Screen replacement: perspective warp, key-based finger occlusion, marker fill, despill, room-fixed glare |
+| `spot/edit.py` | The edit: timeline, reframing and push-ins, UI changes on the thumb press, grade, titles, grain, encode |
+| `spot/supers.mjs` | Renders the titles as transparent layers in the app's typefaces |
+| `spot/kinly-spot.html` | Motion-graphics composition (the UI-motion cut and the end card). Open it in a browser to watch it loop |
+| `spot/render.mjs` | Renders that composition to video |
+
+### Rebuilding
+
+You need Python 3 with `opencv-python-headless`, `numpy` and `imageio-ffmpeg`, plus Node with Playwright and Chromium.
 
 ```sh
-node spot/render.mjs            # full MP4 into output/
-node spot/render.mjs --stills   # key frames only
+python3 spot/track.py                                   # screen tracks -> footage/tracks/
+node spot/supers.mjs                                    # titles -> spot/build/supers/
+node spot/render.mjs --end-only --from 23.6 --to 28 --fps 25 --out spot/build/endcard.mp4
+python3 spot/edit.py                                    # -> output/kinly-launch-spot.mp4
+python3 spot/edit.py --stills                           # key frames only
+node spot/render.mjs                                    # -> output/kinly-ui-motion.mp4
 ```
-
-Set `PLAYWRIGHT_PATH`, `CHROMIUM_PATH` or `FFMPEG` when those tools are not on the default paths. Every frame is a pure function of time (`renderAt(t)` in the composition), so repeated renders come out identical.
 
 ## Not in this sample
 
-The sample has no audio yet. The full commercial adds voiceover, music and a final mix. The live-action footage with the two recurring leads will come from AI video generation. These screens will then be tracked onto the phones in that footage using the same compositing approach.
+- **Audio.** The supplied clips have silent audio tracks, so the spot has no sound yet. The full commercial adds voiceover, music, sound design and a final mix.
+- **Recurring lead characters.** These stock clips show different people. In the full commercial, the two leads are generated from locked reference boards, and their phones are composited the same way as here.

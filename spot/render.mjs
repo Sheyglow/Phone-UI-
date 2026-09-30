@@ -1,5 +1,5 @@
 // Renders spot/kinly-spot.html frame by frame and encodes an H.264 MP4.
-// Usage: node spot/render.mjs [--fps 30] [--out output/kinly-launch-sample.mp4] [--stills]
+// Usage: node spot/render.mjs [--fps 30] [--out output/kinly-ui-motion.mp4] [--stills] [--from s --to s] [--end-only]
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
@@ -14,9 +14,12 @@ const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const fps = Number(opt('--fps', 30));
-const out = path.resolve(root, opt('--out', 'output/kinly-launch-sample.mp4'));
+const out = path.resolve(root, opt('--out', 'output/kinly-ui-motion.mp4'));
 const ffmpeg = process.env.FFMPEG || 'ffmpeg';
 const stills = args.includes('--stills');
+const from = Number(opt('--from', 0));
+const to = opt('--to', null);
+const endOnly = args.includes('--end-only');
 
 mkdirSync(path.dirname(out), { recursive: true });
 
@@ -25,7 +28,7 @@ const browser = await chromium.launch({
   args: ['--force-color-profile=srgb', '--disable-lcd-text'],
 });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-await page.goto(pathToFileURL(path.join(here, 'kinly-spot.html')).href + '?render');
+await page.goto(pathToFileURL(path.join(here, 'kinly-spot.html')).href + (endOnly ? '?render&end' : '?render'));
 await page.evaluate(async () => {
   await document.fonts.ready;
   const urls = [...document.querySelectorAll('[style*="url("]')].map(el => el.style.backgroundImage.slice(5, -2));
@@ -52,9 +55,9 @@ const enc = spawn(ffmpeg, [
   '-tune', 'grain', '-maxrate', '8M', '-bufsize', '16M', '-movflags', '+faststart', out,
 ], { stdio: ['pipe', 'inherit', 'inherit'] });
 
-const total = Math.round(duration * fps);
+const total = Math.round(((to === null ? duration : Number(to)) - from) * fps);
 for (let f = 0; f < total; f++) {
-  await page.evaluate(t => window.renderAt(t), f / fps);
+  await page.evaluate(t => window.renderAt(t), from + f / fps);
   const buf = await stage.screenshot({ type: 'png' });
   if (!enc.stdin.write(buf)) await new Promise(r => enc.stdin.once('drain', r));
   if (f % fps === 0) process.stdout.write(`\rframe ${f}/${total}`);
