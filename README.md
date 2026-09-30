@@ -8,7 +8,8 @@ The brief treats phone-screen text as non-negotiable. For that reason, the app U
 
 | File | What it is |
 | --- | --- |
-| `output/kinly-launch-spot.mp4` | **The sample.** 1920×1080, 25 fps, H.264, about 34 s |
+| `output/kinly-launch-spot.mp4` | **The sample.** 1920×1080, 25 fps, H.264, about 34 s (master, 48 MB) |
+| `output/kinly-launch-spot-share.mp4` | The same spot at a lower bitrate for sending (20 MB) |
 | `output/kinly-ui-motion.mp4` | A 28 s motion-graphics cut of the same screens on a 3D phone, 30 fps |
 | `output/stills/` | Key frames from the spot |
 | `PITCH.md` | Draft reply to the brief |
