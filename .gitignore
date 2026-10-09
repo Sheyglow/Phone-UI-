@@ -1,4 +1,6 @@
-node_modules/
 .DS_Store
 __pycache__/
+job/analysis/audio.raw
+job/output/*-picture.mp4
+node_modules/
 spot/build/*-picture.mp4
