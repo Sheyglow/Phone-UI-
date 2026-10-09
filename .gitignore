@@ -3,5 +3,6 @@ __pycache__/
 job/analysis/
 job/analysis/audio.raw
 job/output/*-picture.mp4
+job/output/wagon-commercial.mp4
 node_modules/
 spot/build/*-picture.mp4

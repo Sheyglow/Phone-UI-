@@ -1,6 +1,6 @@
 # Wagon commercial: phone UI and motion graphics
 
-The client's edit (`source/main.mp4`, 854×480, 110 s) with every phone screen replaced by the supplied app UI, the split-screen graphics animated, and the Wagon end card added. The output is `output/wagon-commercial.mp4` at 1920×1080 and 24 fps, with the edit's own audio.
+The client's edit (`source/main.mp4`, 854×480, 110 s) with every phone screen replaced by the supplied app UI, the split-screen graphics animated, and the Wagon end card added. The output is `output/wagon-commercial-1080p.mp4` (1920×1080, 24 fps, 1:54, with the edit's own audio), plus `output/wagon-commercial-share-720p.mp4` for sending. The full-bitrate master the renderer writes to `output/wagon-commercial.mp4` is too large for GitHub, so it stays local.
 
 ## What happens in each shot
 
