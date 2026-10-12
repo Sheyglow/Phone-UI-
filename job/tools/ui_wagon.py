@@ -21,8 +21,8 @@ UI = os.path.join(JOB, 'ui')
 OUT = os.path.join(UI, 'states')
 ASPECT = 0.4656  # the phones' screen shape (width / height), same as the Luma screens
 
-REPLY = "I'm in. What time?"
-REPLY_TIME = '6:18 PM'
+# his message, as supplied in the chat's orange bubble
+MESSAGE = ['Still pretty new to recovery. Trying', 'to meet more people in it.']
 
 
 def font(name, size):
@@ -63,36 +63,54 @@ def text_img(img, xy, txt, f, fill):
 
 
 def chat_states(chat, top):
-    """Draft (reply typed in the field) and sent (reply as a new bubble)."""
-    oy = top  # rows added above the supplied screen
-    field = chat[oy + 1230, 400].copy()
-    # draft: replace the placeholder with the typed reply
-    draft = chat.copy()
-    draft[oy + 1236:oy + 1268, 120:560] = field
-    f = font('Inter-400', 25)
-    draft = text_img(draft, (127, oy + 1236), REPLY, f, (24, 24, 28))
-    # caret after the text
-    tw = ImageFont.truetype(os.path.join(JOB, 'fonts', 'Inter-400.ttf'), 25).getlength(REPLY)
-    cv2.rectangle(draft, (int(127 + tw + 4), oy + 1238), (int(127 + tw + 6), oy + 1266), (52, 116, 252), -1)
+    """The supplied conversation, built up live (all text as supplied):
+    empty chat with his message in the field -> his bubble -> Marcus typing -> Marcus's reply.
 
-    # sent: new bubble under Marcus's reply, right-aligned like the first one (x ends at 650)
-    sent = chat.copy()
-    tw = f.getlength(REPLY)
-    bw = int(max(tw, 140) + 54)
-    x1, y0 = 650, oy + 690
-    x0, h = x1 - bw, 104
-    bub = Image.new('RGBA', (bw * 4, h * 4), (0, 0, 0, 0))
-    ImageDraw.Draw(bub).rounded_rectangle([0, 0, bw * 4 - 1, h * 4 - 1], 26 * 4, fill=(252, 116, 52, 255))
-    bub = bub.resize((bw, h), Image.LANCZOS)
-    pil = Image.fromarray(cv2.cvtColor(sent, cv2.COLOR_BGR2RGB)).convert('RGBA')
-    pil.alpha_composite(bub, (x0, y0))
+    Returns the screens plus the layers and boxes the renderer animates.
+    """
+    oy = top  # rows added above the supplied screen
+    page = np.median(chat[oy + 700:oy + 760, 200:500].reshape(-1, 3), 0).astype(np.uint8)
+    ORANGE = (oy + 340, oy + 492, 205, 656)      # his bubble (y0, y1, x0, x1)
+    REPLY = (oy + 505, oy + 668, 8, 560)         # Marcus's avatar and reply
+    empty = chat.copy()
+    for y0, y1, x0, x1 in (ORANGE, REPLY):
+        empty[y0:y1, x0:x1] = page
+    # draft: the field grows to two lines with his message in it
+    draft = empty.copy()
+    fx0, fx1, fy1 = 101, 571, oy + 1283
+    fy0 = fy1 - 96
+    draft[fy0 - 8:oy + 1214, 96:575] = page   # room for the taller field (the "+" stays put)
+    pil = Image.fromarray(cv2.cvtColor(draft, cv2.COLOR_BGR2RGB))
     d = ImageDraw.Draw(pil)
-    d.text((x0 + 27, y0 + 22), REPLY, font=f, fill=(255, 255, 255))
-    ft = font('Inter-400', 17)
-    tt = REPLY_TIME + '  ✓✓'
-    d.text((x1 - 28 - ft.getlength(tt), y0 + 70), tt, font=ft, fill=(255, 226, 210))
-    sent = cv2.cvtColor(np.array(pil.convert('RGB')), cv2.COLOR_RGB2BGR)
-    return draft, sent, (x0, y0, x1, y0 + h)
+    ss = 4
+    fld = Image.new('RGBA', ((fx1 - fx0) * ss, (fy1 - fy0) * ss), (0, 0, 0, 0))
+    ImageDraw.Draw(fld).rounded_rectangle([0, 0, (fx1 - fx0) * ss - 1, (fy1 - fy0) * ss - 1], 33 * ss,
+                                          fill=(248, 247, 249, 255), outline=(232, 230, 234, 255), width=2 * ss)
+    fld = fld.resize((fx1 - fx0, fy1 - fy0), Image.LANCZOS)
+    pil = pil.convert('RGBA')
+    pil.alpha_composite(fld, (fx0, fy0))
+    d = ImageDraw.Draw(pil)
+    f = font('Inter-400', 24)
+    for i, line in enumerate(MESSAGE):
+        d.text((127, fy0 + 17 + i * 32), line, font=f, fill=(24, 24, 28))
+    # caret after the last word
+    cx = 127 + f.getlength(MESSAGE[-1]) + 3
+    d.rectangle([cx, fy0 + 20 + 32, cx + 2, fy0 + 20 + 32 + 26], fill=(52, 116, 252))
+    draft = cv2.cvtColor(np.array(pil.convert('RGB')), cv2.COLOR_RGB2BGR)
+    # typing indicator: Marcus's avatar and a small grey bubble with three dots (dots drawn per frame)
+    typing = empty.copy()
+    av = (oy + 560, oy + 652, 8, 112)
+    typing[av[0]:av[1], av[2]:av[3]] = chat[av[0]:av[1], av[2]:av[3]]
+    bub = (119, oy + 588, 119 + 112, oy + 588 + 62)   # bottom-aligned with the avatar
+    pil = Image.fromarray(cv2.cvtColor(typing, cv2.COLOR_BGR2RGB)).convert('RGBA')
+    b = Image.new('RGBA', ((bub[2] - bub[0]) * ss, (bub[3] - bub[1]) * ss), (0, 0, 0, 0))
+    ImageDraw.Draw(b).rounded_rectangle([0, 0, b.width - 1, b.height - 1], 26 * ss, fill=(242, 242, 242, 255))
+    pil.alpha_composite(b.resize((bub[2] - bub[0], bub[3] - bub[1]), Image.LANCZOS), (bub[0], bub[1]))
+    typing = cv2.cvtColor(np.array(pil.convert('RGB')), cv2.COLOR_RGB2BGR)
+    sent = empty.copy()
+    sent[ORANGE[0]:ORANGE[1], ORANGE[2]:ORANGE[3]] = chat[ORANGE[0]:ORANGE[1], ORANGE[2]:ORANGE[3]]
+    boxes = {'orange': ORANGE, 'reply': REPLY, 'dots': bub, 'avatar': av}
+    return {'empty': empty, 'draft': draft, 'sent': sent, 'typing': typing, 'full': chat}, boxes
 
 
 def main():
@@ -106,10 +124,10 @@ def main():
         cv2.imwrite(os.path.join(OUT, key + '.png'), rgb)
         meta[key] = {'size': [rgb.shape[1], rgb.shape[0]], 'top': top}
         if key == 'wagon-chat':
-            draft, sent, bubble = chat_states(rgb, top)
-            cv2.imwrite(os.path.join(OUT, 'wagon-chat-draft.png'), draft)
-            cv2.imwrite(os.path.join(OUT, 'wagon-chat-sent.png'), sent)
-            meta[key]['bubble'] = bubble
+            screens, boxes = chat_states(rgb, top)
+            for k, v in screens.items():
+                cv2.imwrite(os.path.join(OUT, f'wagon-chat-{k}.png'), v)
+            meta[key].update({k: [int(x) for x in v] for k, v in boxes.items()})
     # interaction points, in the prepared textures' pixels (measured on the supplied screens)
     meta['wagon-dating'].update(heart=[409, 1153 + meta['wagon-dating']['top']], ring=58, color=[255, 85, 200],
                                 card=[10, 245 + meta['wagon-dating']['top'], 657, 1072 + meta['wagon-dating']['top']])

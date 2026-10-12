@@ -46,7 +46,8 @@ def logo_assets():
 
 
 def phone_cutout(name, out):
-    img = cv2.imread(os.path.join(UI, name + '.png'))
+    edited = os.path.join(UI, 'edited', name + '.png')
+    img = cv2.imread(edited if os.path.exists(edited) else os.path.join(UI, name + '.png'))
     h, w = img.shape[:2]
     mask = np.zeros((h + 2, w + 2), np.uint8)
     flood = img.copy()

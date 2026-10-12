@@ -28,7 +28,7 @@ FPS = 24
 # name -> (first frame, last frame inclusive, roi x0, x1, mode)
 # mode 'white': blank white screen. 'ui': white AI UI with text, bubbles and a keyboard.
 SCREENS = {
-    's01-luma': (17, 125, 0, 854, 'ui'),
+    's01-luma': (6, 125, 0, 854, 'ui'),
     's02-luma-chat': (126, 191, 0, 854, 'ui'),
     's10-left': (1936, 2023, 0, 418, 'white'),
     's10-right': (1936, 2023, 420, 854, 'white'),

@@ -196,8 +196,14 @@ def keyboard(w, h):
     return cv2.cvtColor(np.array(img.resize((w, h), Image.LANCZOS)), cv2.COLOR_RGB2BGR)
 
 
-def chat_typing(final, text, cursor=True, kb_offset=0):
-    """Chat screen while typing `text`. kb_offset slides the keyboard down (0 = fully up)."""
+_KB = {}
+
+
+def chat_typing(final, text, cursor=True, kb_offset=0, down=None):
+    """Chat screen while typing `text`. kb_offset slides the keyboard down (0 = fully up).
+
+    down (0..1), when given, places the keyboard between fully up (0) and fully hidden (1),
+    with the message bar riding on top of it back to its resting place."""
     h, w = final.shape[:2]
     img = final.copy()
     page = final[700, 300].copy()
@@ -205,7 +211,12 @@ def chat_typing(final, text, cursor=True, kb_offset=0):
     img[CHAT_BAR[0]:h - 40, 20:w - 2] = page                     # bar moves up with the keyboard
     bar = final[CHAT_BAR[0]:CHAT_BAR[1]].copy()
     bh = CHAT_BAR[1] - CHAT_BAR[0]
-    by = KB_TOP - bh - 6 + kb_offset
+    by_up = KB_TOP - bh - 6
+    if down is not None:
+        by = int(round(by_up + (CHAT_BAR[0] - by_up) * down))
+        kb_offset = int(round((h - KB_TOP) * down))
+    else:
+        by = by_up + kb_offset
     img[by:by + bh, 2:w - 2] = bar[:, 2:w - 2]
     # typed text replaces the placeholder
     fx0, fy0, fx1, fy1 = FIELD_TEXT
@@ -231,7 +242,9 @@ def chat_typing(final, text, cursor=True, kb_offset=0):
     if cursor:
         d.rectangle([tx + 3, fy0 + 10, tx + 6, fy1 - 8], fill=(63, 137, 242))
     img = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
-    kb = keyboard(w, h - KB_TOP)
+    if (w, h) not in _KB:
+        _KB[(w, h)] = keyboard(w, h - KB_TOP)
+    kb = _KB[(w, h)]
     ky = KB_TOP + kb_offset
     if ky < h:
         img[ky:h] = kb[:h - ky]
