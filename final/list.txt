@@ -1,0 +1,8 @@
+file 'parts/part1.mp4'
+file 'parts/part2.mp4'
+file 'parts/part3.mp4'
+file 'parts/part4.mp4'
+file 'parts/part5.mp4'
+file 'parts/part6.mp4'
+file 'parts/part7.mp4'
+file 'parts/part8.mp4'

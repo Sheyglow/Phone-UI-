@@ -1,5 +1,12 @@
 .DS_Store
 __pycache__/
+final/*.jpg
+final/*.png
+final/*.raw
+final/Wagon_Full_master.mp4
+final/audio/*.wav
+final/joined_raw.mp4
+final/parts/
 job/analysis/
 job/analysis/audio.raw
 job/output/*-picture.mp4
