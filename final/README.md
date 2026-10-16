@@ -6,6 +6,7 @@ Parts 1–8 joined in order, with a score, sound design and the clips' own dialo
 | --- | --- |
 | `Wagon_Full_1080p.mp4` | Delivery: 1920×1080, 24 fps, 1:53.8, AAC 256 kbps, −14 LUFS / −1.5 dBTP |
 | `Wagon_Full_share_720p.mp4` | Smaller copy for sending |
+| `Wagon_Full_mix_24bit_48k.wav`, `Wagon_Full_mix_16bit_48k.wav` | The master mix as WAV: 48 kHz stereo, −14 LUFS, exactly the picture's length (1:53.77), starting on frame 1 |
 | `audio/stems/dialogue.flac`, `music.flac`, `sfx.flac` | Mix stems (48 kHz, 24-bit) for anyone re-balancing |
 
 The full-bitrate master (`Wagon_Full_master.mp4`, the joined picture untouched with the master audio) is about 230 MB, so it's rebuilt locally rather than committed.
