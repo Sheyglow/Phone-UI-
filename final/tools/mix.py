@@ -4,8 +4,8 @@ Stems (48 kHz stereo):
 - dialogue: the clips' own audio, edited to the client's notes (rev 2):
     0:07.6-0:26.1  removed: makeup foley, Ethan's room chatter and the date's small talk. The
                    date's background air carries on under the music from 0:21.3
-    0:27.6         Daniel's order replaced with "I'll do an Old Fashion." (ElevenLabs, voice Cole,
-                   matched in tone and room to the scene)
+    0:28.5         Daniel's own "Old Fashioned" trimmed to "Old Fashion": the over-stressed extra
+                   syllable ("fash-n-ed") is cut and the word ends on his own nasal decay
     0:41.95-0:47.6 removed: the gibberish after "Hey Ethan!" (bar air carries on)
     1:08.95-1:11.75 removed: the clips' two pings (one shared notification is in the SFX)
     1:16.17-1:29.5 removed: app beats are music-only
@@ -24,7 +24,7 @@ import subprocess
 import imageio_ffmpeg
 import numpy as np
 import soundfile as sf
-from scipy.signal import butter, fftconvolve, sosfilt
+from scipy.signal import butter, sosfilt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FINAL = os.path.dirname(HERE)
@@ -32,12 +32,12 @@ SR = 48000
 LENGTH = 113.7708
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 A = os.path.join(FINAL, 'audio')
-rng = np.random.default_rng(11)
 
 # dialogue removals (client notes, rev 2) and the earlier ones
-CUTS = [(7.6, 26.1), (27.5, 29.0), (41.95, 47.6), (68.95, 71.75), (76.17, LENGTH + 1)]
-DANIEL_LINE_AT = 27.62      # where the new line's first word starts
-DANIEL_TAKE = os.path.join(A, 'vo_dialogue', 'daniel_take1.wav')
+CUTS = [(7.6, 26.1), (28.66, 29.0), (41.95, 47.6), (68.95, 71.75), (76.17, LENGTH + 1)]
+# "Old Fashioned" -> "Old Fashion": keep "fash-n" up to KEEP_TO, skip the extra vowel, and splice on the
+# nasal decay that starts at TAIL_FROM (both sides are nasal murmur, so the join is seamless)
+KEEP_TO, TAIL_FROM, TAIL_LEN = 28.505, 28.59, .16   # the tail runs on past where the cut closes
 
 
 def run(*args):
@@ -87,34 +87,21 @@ def place_bed(dst, b, t0, t1, gain=1.0, fade=.12):
     dst[i0:i1] += seg * r[:, None]
 
 
-def small_room_ir(rt60=.32):
-    n = int(rt60 * SR)
-    t = np.arange(n) / SR
-    ir = rng.standard_normal((n, 2)) * np.exp(-6.91 * t / rt60)[:, None]
-    ir = sosfilt(butter(1, 3500, 'lowpass', fs=SR, output='sos'), ir, axis=0)
-    ir /= np.sqrt((ir ** 2).sum(0))
-    return ir
-
-
-def daniel_line(prod):
-    """The new ElevenLabs line, made to sit in the restaurant: tone, room and level matched."""
-    x, sr = sf.read(DANIEL_TAKE, dtype='float64')
-    x = x.mean(1) if x.ndim > 1 else x
-    env = np.sqrt(np.convolve(x ** 2, np.ones(480) / 480, 'same'))
-    on = int(np.argmax(20 * np.log10(env + 1e-9) > -40))
-    x = x[max(0, on - int(.02 * SR)):]
-    # tone: the take is brighter and cleaner than the location audio
-    x = sosfilt(butter(2, 3800, 'lowpass', fs=SR, output='sos'), x)
-    x = sosfilt(butter(1, 120, 'highpass', fs=SR, output='sos'), x)
-    dry = np.stack([x, x], 1)
-    wet = np.stack([fftconvolve(x, small_room_ir()[:, c])[:len(x)] for c in range(2)], 1)
-    y = dry + wet * .22
-    # level: match the original line's speech level
-    orig = prod[int(27.68 * SR):int(28.5 * SR)].mean(1)
-    sp = lambda s: np.sqrt((sosfilt(butter(2, [250, 3500], 'bandpass', fs=SR, output='sos'), s) ** 2).mean())
-    voiced = y.mean(1)[:int(1.0 * SR)]
-    y *= sp(orig) / max(sp(voiced), 1e-9)
-    return y.astype(np.float32)
+def trim_old_fashioned(prod):
+    """Daniel's own line, with the "-ed" syllable removed. Returns the edited production audio."""
+    out = prod.copy()
+    k = int(KEEP_TO * SR)
+    xf = int(.008 * SR)
+    # align the tail to the kept audio's waveform (within one pitch period) so the crossfade doesn't comb
+    ref = prod[k:k + xf].mean(1)
+    cands = range(int(TAIL_FROM * SR) - 240, int(TAIL_FROM * SR) + 240)
+    src = max(cands, key=lambda c: np.dot(prod[c:c + xf].mean(1), ref) / (np.linalg.norm(prod[c:c + xf]) + 1e-9))
+    n = int(TAIL_LEN * SR)
+    tail = prod[src:src + n].copy()
+    r = np.linspace(0, 1, xf)[:, None]
+    out[k:k + xf] = prod[k:k + xf] * (1 - r) + tail[:xf] * r
+    out[k + xf:k + n] = tail[xf:]
+    return out, src / SR
 
 
 def duck_curve(sig, n, max_db=5.0, thresh=-40):
@@ -164,17 +151,15 @@ def main():
     vo = pad(sf.read(vo_path, dtype='float32', always_2d=True)[0]) if os.path.exists(vo_path) else np.zeros((N, 2), np.float32)
 
     # dialogue stem
-    dlg = prod * gate(N, CUTS, .06)[:, None]
+    edited, tail_src = trim_old_fashioned(prod)
+    print(f'Old Fashion trim: tail spliced from {tail_src:.4f} s')
+    dlg = edited * gate(N, CUTS, .06)[:, None]
     # the location's own air under removed stretches (speech-free pieces, from the transcript)
     restaurant = bed(prod, [(30.24, 31.2), (34.85, 35.85)], 8.0)
     place_bed(dlg, restaurant, 21.29, 26.16, .8)
-    place_bed(dlg, restaurant[int(2 * SR):], 27.45, 29.06, .9, fade=.06)
+    place_bed(dlg, restaurant[int(.94 * SR):], 28.55, 29.06, .9, fade=.06)   # its smoothest stretch; also covers a dropout at 28.86
     barair = bed(prod, [(47.62, 50.85)], 6.5)
     place_bed(dlg, barair, 41.9, 47.66, 1.0, fade=.15)
-    # Daniel's corrected line
-    line = daniel_line(prod)
-    i = int(DANIEL_LINE_AT * SR)
-    dlg[i:i + len(line)] += line[:N - i]
     # the home scene's TV chatter sits low under the voiceover's line 4
     dlg *= curve([(0, 1), (64.0, 1), (64.3, .3), (67.6, .3), (68.3, 1), (LENGTH, 1)], N)[:, None]
 

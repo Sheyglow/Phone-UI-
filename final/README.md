@@ -36,7 +36,7 @@ Narrator: ElevenLabs, voice **Darian** ("Warm Grounded Storyteller"), model elev
 | 0:08–0:13 | Music at normal level; the makeup clatter and small foley removed |
 | 0:13–0:21 | Music at normal level; Ethan's phone buzz (0:15.6) and the text-received sound (0:17.0) kept audible over it |
 | 0:21–0:25 | The small talk and laughter removed; music carries on and sits under once the waitress speaks (0:26.2) |
-| 0:27.6 | Daniel now says "I'll do an Old Fashion." (ElevenLabs, voice Cole, matched to the restaurant's tone, room and level) |
+| 0:28.5 | Daniel now says "I'll do an Old Fashion." in his own voice: the over-stressed extra syllable of "Old Fashioned" ("fash-n-**ed**") is cut out and the word ends on his own nasal decay, with the restaurant's air under the gap |
 | 0:42–0:47.6 | The gibberish after "Hey Ethan!" removed; the bar's air carries on and the music comes back up |
 | 1:04–1:08 | The home scene's TV chatter sits low under the voiceover |
 | 1:29.5–end | The coffee clink, Marcus's greeting and the gibberish after it removed; music carries it, with the voiceover |
@@ -61,8 +61,8 @@ The clips carry faint music beds of their own in A♭ / E♭ / F minor. The scor
 
 - **Music:** composed for this cut and performed with the *VS Chamber Orchestra: Community Edition* samples (Versilian Studios, **CC0**, public domain): upright piano, string sections, contrabass, harp, glockenspiel, timpani and orchestral percussion. No credit or licence fee is required.
 - **Sound design:** synthesised here (taps, key ticks, swipes, the notification chime, transitions, room tone).
-- **Dialogue and ambience:** the clips' own audio, apart from Daniel's replacement line.
-- **Voiceover and Daniel's line:** generated with ElevenLabs on the client's account (`audio/vo_lines/take_c.mp3` is the narrator read used, takes A and B are the alternatives; `audio/vo_dialogue/` holds Daniel's takes).
+- **Dialogue and ambience:** the clips' own audio.
+- **Voiceover:** generated with ElevenLabs (`audio/vo_lines/take_c.mp3` is the narrator read used; takes A and B are the alternatives). `audio/vo_dialogue/` holds the earlier re-voiced Daniel takes (voice Cole), no longer used.
 
 ## Rebuilding
 
