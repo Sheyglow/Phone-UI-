@@ -3,14 +3,15 @@ __pycache__/
 final/*.jpg
 final/*.png
 final/*.raw
+final/*_part?of2.wav
 final/Wagon_Full_master.mp4
 final/audio/*.wav
 final/joined_raw.mp4
 final/parts/
+final/stems/*_16bit_48k.wav
 job/analysis/
 job/analysis/audio.raw
 job/output/*-picture.mp4
 job/output/wagon-commercial.mp4
 node_modules/
 spot/build/*-picture.mp4
-final/*_part?of2.wav
