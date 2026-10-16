@@ -14,32 +14,38 @@ The full-bitrate master (`Wagon_Full_master.mp4`, the joined picture untouched w
 
 ## Voiceover
 
-Narrator: **Higgsfield**, voice **Holden**, Seed Audio 1.0, on a paid (Pro) plan, which covers commercial use. Each line was generated on its own (`audio/vo_holden/`), trimmed, levelled and placed on its shot (`tools/vo.py`). The music ducks up to 9 dB under it. `audio/vo_higgsfield/` holds the four full-script candidate reads (Grady, Desmond, Harrison, Holden) the voice was chosen from.
+Narrator: **Higgsfield**, voice **Nora** (female), Seed Audio 1.0, on a paid (Pro) plan, which covers commercial use. The brief asks for a warm, natural, emotionally intelligent and cinematic voice that speaks to the viewer rather than selling: not soft, breathy, dramatic or announcer-like. Each line was generated on its own. Lines 1–4 are read a little slower, calm and reflective, with a touch of low-mid warmth. Lines 5–10, after the Wagon reveal, are at normal pace with a touch of presence, so they sound brighter and more hopeful (`tools/vo.py`).
 
-| Time | Shot | Line |
-| --- | --- | --- |
-| 0:00.6 | 1, Jessica on the app | Everyone wants meaningful connection. |
-| 0:36.3 | 8, her reaction | But in recovery, finding it can feel different. |
-| 0:42.4 | 12, Ethan at the bar | The places that once felt familiar don't always feel the same anymore. |
-| 1:04.4 | 14, Ethan back home | But that doesn't mean finding connection in recovery doesn't exist. |
-| 1:16.9 | 17, split-screen reveal | That's why there's Wagon. |
-| 1:18.6 | 18, Dating and Friendship Mode | A dedicated place for love, dating, friendship and connection in recovery. |
-| 1:23.7 | 19, her match | No stigma. No social pressure. |
-| 1:26.9 | 20, Ethan and Marcus chat | Just people who get it. |
-| 1:37.8 | 23, both payoffs | Whatever connection means to you, find people who understand the journey. |
-| 1:49.95 | 24, end card | Wagon. |
+`audio/vo_female/` holds all 10 lines in each candidate voice (Nora, Quinn, Lucy, plus Naomi, whose takes came out unreliable). `python3 final/tools/vo.py quinn` (or `lucy`) swaps the narrator.
+
+Each line starts on the client's time:
+
+| Start | Line |
+| --- | --- |
+| 0:01.2 | Everyone wants meaningful connection. |
+| 0:36 | But in recovery, finding it can feel different. |
+| 1:00 | The places that once felt familiar don't always feel the same anymore. |
+| 1:10 | But that doesn't mean connection in recovery doesn't exist. |
+| 1:17 | That's why there's Wagon. |
+| 1:20 | A dedicated place for love, dating, friendship and connection in recovery. |
+| 1:30 | No stigma. No social pressure. |
+| 1:34 | Just people who get it. |
+| 1:41 | Whatever connection means to you, find people who understand the journey. |
+| 1:50 | Wagon. |
+
+The music plays under the whole spot. It eases down just before each line (up to 9 dB), holds under it and rises back after. Where the score is already quiet it dips less, so it never drops below about −36 dB RMS and stays audible. Location sound under a line (the bar crowd at 1:00, the home TV at 1:00–1:07 and 1:10–1:14) dips with it.
 
 ## Revision 2 (client's audio notes)
 
 | Time | Change |
 | --- | --- |
+| whole spot | The voiceover is in, on the client's timings, with the music lowering under every line and rising back after |
 | 0:08–0:13 | Music at normal level; the makeup clatter and small foley removed |
 | 0:13–0:21 | Music at normal level; Ethan's phone buzz (0:15.6) and the text-received sound (0:17.0) kept audible over it |
 | 0:21–0:25 | The small talk and laughter removed; music carries on and sits under once the waitress speaks (0:26.2) |
 | 0:28.5 | Daniel now says "I'll do an Old Fashion." in his own voice: the over-stressed extra syllable of "Old Fashioned" ("fash-n-**ed**") is cut out and the word ends on his own nasal decay, with the restaurant's air under the gap |
 | 0:42–0:47.6 | The gibberish after "Hey Ethan!" removed; the bar's air carries on and the music comes back up |
-| 1:04–1:08.9 | The home scene's TV chatter sits low under the voiceover |
-| 1:29.5–end | The coffee clink, Marcus's greeting and the gibberish after it removed; music carries it until the voiceover returns at 1:37.8 |
+| 1:29.5–end | The coffee clink, Marcus's greeting and the gibberish after it removed; music carries it between the voiceover lines |
 
 ## The shape of the track
 
@@ -70,6 +76,6 @@ The clips carry faint music beds of their own in A♭ / E♭ / F minor. The scor
 # instrument samples (CC0): https://github.com/sgossner/VSCO-2-CE
 VSCO=/path/to/VSCO-2-CE python3 final/tools/score.py   # -> final/audio/music.wav
 python3 final/tools/sfx.py                              # -> final/audio/sfx.wav, roomtone.wav
-python3 final/tools/vo.py                               # -> final/audio/vo.wav (from audio/vo_holden/line01-10.wav)
+python3 final/tools/vo.py [nora|quinn|lucy]             # -> final/audio/vo.wav, vo_spans.json (from audio/vo_female/<voice>/)
 python3 final/tools/mix.py                              # joins parts/part1-8.mp4, mixes, masters -> Wagon_Full_master.mp4, WAVs, stems
 ```

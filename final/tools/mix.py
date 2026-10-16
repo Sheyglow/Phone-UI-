@@ -11,7 +11,8 @@ Stems (48 kHz stereo):
     1:16.17-1:29.5 removed: app beats are music-only
     1:29.5-end     removed: the coffee clink, Marcus's greeting and the gibberish after it
 - voiceover: final/audio/vo.wav when present (Higgsfield narrator, built by vo.py), else silent.
-- music: final/audio/music.wav, ducked under dialogue and voiceover.
+- music: final/audio/music.wav, ducked under dialogue, and eased down under each narrator line
+  (final/audio/vo_spans.json) then back up, never below MUSIC_FLOOR_DB.
 - sfx: final/audio/sfx.wav, plus room tone wherever the dialogue stem is cut.
 Master: -14 LUFS integrated, -1.5 dBTP. The delivered stems carry the master's gain, so they sum to it.
 
@@ -37,6 +38,9 @@ A = os.path.join(FINAL, 'audio')
 CUTS = [(7.6, 26.1), (28.66, 29.0), (41.95, 47.6), (68.95, 71.75), (76.17, LENGTH + 1)]
 # "Old Fashioned" -> "Old Fashion": keep "fash-n" up to KEEP_TO, skip the extra vowel, and splice on the
 # nasal decay that starts at TAIL_FROM (both sides are nasal murmur, so the join is seamless)
+VO_MUSIC_DUCK_DB = 9.0     # music under the narrator (at most)
+MUSIC_FLOOR_DB = -36.0     # ...but the music stays at least this loud (RMS) under a line
+VO_DLG_DIP_DB = 9.0        # location sound under the narrator
 KEEP_TO, TAIL_FROM, TAIL_LEN = 28.505, 28.59, .16   # the tail runs on past where the cut closes
 
 
@@ -118,6 +122,18 @@ def duck_curve(sig, n, max_db=5.0, thresh=-40):
     return np.concatenate([d, np.ones(n - len(d))]).astype(np.float32)
 
 
+def under_lines(spans, n, depth_db, attack=.35, release=.9):
+    """Gain that eases down just before each narrator line, holds under it and rises back after.
+    depth_db is one depth for every line, or a list with one per line."""
+    depths = depth_db if isinstance(depth_db, (list, tuple)) else [depth_db] * len(spans)
+    g = np.ones(n, np.float32)
+    t = np.arange(n) / SR
+    for (a, b), d in zip(spans, depths):
+        r = np.clip(np.minimum((t - (a - attack)) / attack, ((b + .15 + release) - t) / release), 0, 1)
+        g = np.minimum(g, 1 - (1 - 10 ** (-d / 20)) * r)
+    return g
+
+
 def master_gain(pre, mas, hop=24):
     """The master's (time-varying) gain over the premix, so stems can carry it and sum to the master."""
     N = min(len(pre), len(mas))
@@ -149,6 +165,8 @@ def main():
     prod, music, sfx, room = pad(prod), pad(music), pad(sfx), pad(room)
     vo_path = os.path.join(A, 'vo.wav')
     vo = pad(sf.read(vo_path, dtype='float32', always_2d=True)[0]) if os.path.exists(vo_path) else np.zeros((N, 2), np.float32)
+    spans_path = os.path.join(A, 'vo_spans.json')
+    spans = json.load(open(spans_path))['spans'] if os.path.exists(vo_path) and os.path.exists(spans_path) else []
 
     # dialogue stem
     edited, tail_src = trim_old_fashioned(prod)
@@ -160,16 +178,19 @@ def main():
     place_bed(dlg, restaurant[int(.94 * SR):], 28.55, 29.06, .9, fade=.06)   # its smoothest stretch; also covers a dropout at 28.86
     barair = bed(prod, [(47.62, 50.85)], 6.5)
     place_bed(dlg, barair, 41.9, 47.66, 1.0, fade=.15)
-    # the home scene's TV chatter sits low under the voiceover's line 4
-    dlg *= curve([(0, 1), (64.0, 1), (64.3, .3), (68.2, .3), (68.85, 1), (LENGTH, 1)], N)[:, None]
+    # location sound under a narrator line (the bar crowd, the home TV) sits low beneath it
+    dlg *= under_lines(spans, N, VO_DLG_DIP_DB)[:, None]
 
     # room tone where the dialogue stem is cut and no location air replaces it
     rt = curve([(0, 1), (21.2, 1), (21.35, 0), (68.85, 0), (69.0, 1), (71.7, 1), (71.9, 0), (76.05, 0), (76.2, 1),
                 (LENGTH, 1)], N)
     sfx_stem = sfx + room * rt[:, None]
 
-    # music ducks under dialogue and voiceover
-    duck = np.minimum(duck_curve(dlg.mean(1), N), duck_curve(vo.mean(1), N, max_db=9.0, thresh=-42))
+    # music ducks under the dialogue, and eases down under each whole narrator line, then back up
+    # (less where the score is already quiet, so it stays audible underneath: never below MUSIC_FLOOR_DB)
+    lvl = lambda a, b: 20 * np.log10(np.sqrt((music[int(a * SR):int(b * SR)] ** 2).mean()) + 1e-12) + 1.5
+    depths = [float(np.clip(lvl(a, b) - MUSIC_FLOOR_DB, 3.0, VO_MUSIC_DUCK_DB)) for a, b in spans]
+    duck = np.minimum(duck_curve(dlg.mean(1), N), under_lines(spans, N, depths))
     music_stem = music * duck[:, None] * 10 ** (1.5 / 20)
     # a little more room for the closing "Wagon." under the end card's landing chord
     music_stem *= curve([(0, 1), (109.8, 1), (109.95, .71), (110.45, .71), (110.75, 1), (LENGTH, 1)], N)[:, None]

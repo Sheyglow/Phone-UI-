@@ -1,14 +1,17 @@
-"""Builds the voiceover stem from the Higgsfield narrator lines (voice Holden, Seed Audio 1.0).
+"""Builds the voiceover stem from the Higgsfield narrator lines (Seed Audio 1.0, paid plan).
 
-Each script line was generated on its own (final/audio/vo_holden/lineNN.wav). For each line the
-speech is found inside a search window (lines 1 and 4 open with a second of garbled engine output
-before a clear pause, and a few files start with a click, so the window starts after those),
-levelled to the same speech level and placed on its shot. A line given as two pieces is joined
-with a shorter pause than the read had. Times are on the joined cut's timeline, in seconds.
+Each script line was generated on its own, one folder per candidate voice
+(final/audio/vo_female/<voice>/lineNN.wav). Lines 1-4 were read a little slower (calm, reflective);
+lines 5-10, after the Wagon reveal, at normal pace. For each line the speech is found (clicks and
+breaths around it are left out), levelled to the same speech level, given its tone (a touch of
+warmth before the reveal, a touch of presence after it) and placed at the client's start time.
+The line spans are written to final/audio/vo_spans.json for the music ducking in mix.py.
 
-Usage: python3 final/tools/vo.py -> final/audio/vo.wav (48 kHz stereo, the picture's length)
+Usage: python3 final/tools/vo.py [voice] -> final/audio/vo.wav (48 kHz stereo, the picture's length)
 """
+import json
 import os
+import sys
 
 import numpy as np
 import soundfile as sf
@@ -19,32 +22,44 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FINAL = os.path.dirname(HERE)
 SR = 48000
 LENGTH = 113.7708
-LINES_DIR = os.path.join(FINAL, 'audio', 'vo_holden')
+VOICE = 'nora'
 LEVEL_DB = -21.0           # speech RMS of every line (premaster)
-PIECE_GAP = .45            # pause between the pieces of a two-piece line
 
-# (line number, search windows in its file, where it starts on the cut, text[, gain dB])
+# (line number, start on the cut from the client's timings, tone, text[, gain dB])
 LINES = [
-    (1, [(1.6, 4.4)], 0.60, 'Everyone wants meaningful connection.'),                         # shot 1, Jessica on the app
-    (2, [(0.0, 3.79)], 36.25, 'But in recovery, finding it can feel different.'),             # her reaction close-up
-    (3, [(0.0, 4.51)], 42.35, "The places that once felt familiar don't always feel the same anymore."),  # Ethan at the bar
-    (4, [(2.3, 6.90)], 64.35, "But that doesn't mean finding connection in recovery doesn't exist."),     # Ethan back home
-    (5, [(0.5, 4.0)], 76.85, "That's why there's Wagon."),                                    # split-screen reveal, after the logo pops
-    (6, [(0.3, 5.57)], 78.55, 'A dedicated place for love, dating, friendship and connection in recovery.'),  # two phones
-    (7, [(0.6, 2.4), (2.4, 4.4)], 83.65, 'No stigma. No social pressure.'),                  # her match
-    (8, [(0.0, 1.66)], 86.90, 'Just people who get it.'),                                     # Ethan and Marcus chat
-    (9, [(0.0, 4.63)], 97.80, 'Whatever connection means to you, find people who understand the journey.'),  # payoffs
-    (10, [(0.6, 1.88)], 109.95, 'Wagon.', 5.0),                                               # end card, after the logo pops
+    (1, 1.20, 'intimate', 'Everyone wants meaningful connection.'),
+    (2, 36.00, 'intimate', 'But in recovery, finding it can feel different.'),
+    (3, 60.00, 'intimate', "The places that once felt familiar don't always feel the same anymore."),
+    (4, 70.00, 'intimate', "But that doesn't mean connection in recovery doesn't exist."),
+    (5, 77.00, 'bright', "That's why there's Wagon."),
+    (6, 80.00, 'bright', 'A dedicated place for love, dating, friendship and connection in recovery.'),
+    (7, 90.00, 'bright', 'No stigma. No social pressure.'),
+    (8, 94.00, 'bright', 'Just people who get it.'),
+    (9, 101.00, 'bright', 'Whatever connection means to you, find people who understand the journey.'),
+    (10, 110.00, 'bright', 'Wagon.', 3.0),
 ]
 
 
-def speech_span(x, rel_db=-40):
-    """First and last sample of speech in x (frames within rel_db of the loudest frame)."""
+def speech_span(x):
+    """Start and end sample of the line: voiced stretches, leaving out clicks and breaths."""
     hop = 240
     e = np.sqrt(np.convolve(x ** 2, np.ones(2 * hop) / (2 * hop), 'same')[::hop] + 1e-12)
     d = 20 * np.log10(e)
-    on = np.flatnonzero(d > d.max() + rel_db)
-    return on[0] * hop, min(len(x), (on[-1] + 1) * hop)
+    on = d > d.max() - 30
+    runs, i = [], 0
+    while i < len(on):                             # runs of activity, merged across gaps < 0.5 s
+        if on[i]:
+            j = i
+            while j < len(on) and (on[j] or np.any(on[j:j + int(.5 * SR / hop)])):
+                j += 1
+            runs.append((i, j))
+            i = j
+        else:
+            i += 1
+    peak = d.max()
+    keep = [(a, b) for a, b in runs
+            if (b - a) * hop / SR >= .12 and np.percentile(d[a:b], 90) > peak - 12]   # not a click or a breath
+    return keep[0][0] * hop, min(len(x), keep[-1][1] * hop)
 
 
 def speech_rms(x):
@@ -53,6 +68,15 @@ def speech_rms(x):
     e = np.sqrt((x[:len(x) // hop * hop].reshape(-1, hop) ** 2).mean(1))
     voiced = e[20 * np.log10(e + 1e-12) > 20 * np.log10(e.max()) - 30]
     return np.sqrt((voiced ** 2).mean())
+
+
+def tone(x, kind):
+    """Before the reveal a little low-mid warmth; after it a little presence, for the brighter half."""
+    if kind == 'intimate':
+        band = sosfilt(butter(2, [150, 400], 'bandpass', fs=SR, output='sos'), x)
+        return x + band * (10 ** (1.5 / 20) - 1)
+    band = sosfilt(butter(2, [2500, 6000], 'bandpass', fs=SR, output='sos'), x)
+    return x + band * (10 ** (2.0 / 20) - 1)
 
 
 def limit(x, ceiling_db=-4.0, look=.005, release=.08):
@@ -67,43 +91,38 @@ def limit(x, ceiling_db=-4.0, look=.005, release=.08):
     return x * g
 
 
-def cut_line(take, windows):
-    """The speech inside each window, padded and faded, joined with PIECE_GAP between pieces."""
-    pre, post = int(.05 * SR), int(.15 * SR)
-    pieces = []
-    for w0, w1 in windows:
-        i0, i1 = int(w0 * SR), min(len(take), int(w1 * SR))
-        s, e = speech_span(take[i0:i1])
-        a, b = max(i0, i0 + s - pre), min(i1, i0 + e + post)
+def main(voice):
+    hp = butter(2, 80, 'highpass', fs=SR, output='sos')
+    out = np.zeros(int(round(LENGTH * SR)))
+    spans = []
+    pre, post = int(.06 * SR), int(.15 * SR)
+    for n, at, kind, text, *gain in LINES:
+        take, sr = sf.read(os.path.join(FINAL, 'audio', 'vo_female', voice, f'line{n:02d}.wav'), dtype='float64')
+        assert sr == SR
+        take = sosfilt(hp, take.mean(1) if take.ndim > 1 else take)   # clear any low rumble
+        s, e = speech_span(take)
+        a, b = max(0, s - pre), min(len(take), e + post)
         x = take[a:b].copy()
-        f0, f1 = min(int(.02 * SR), i0 + s - a), int(.08 * SR)
+        f0, f1 = min(int(.02 * SR), s - a), int(.08 * SR)
         if f0 > 0:
             x[:f0] *= np.linspace(0, 1, f0)
         x[-f1:] *= np.linspace(1, 0, f1)
-        pieces.append((x, i0 + s - a))             # the piece, and where its speech starts in it
-    out, lead = pieces[0][0], pieces[0][1]
-    for x, _ in pieces[1:]:
-        out = np.concatenate([out, np.zeros(int(PIECE_GAP * SR) - int(.20 * SR)), x])
-    return out, lead
-
-
-def main():
-    hp = butter(2, 80, 'highpass', fs=SR, output='sos')
-    out = np.zeros(int(round(LENGTH * SR)))
-    for n, windows, at, text, *gain in LINES:
-        take, sr = sf.read(os.path.join(LINES_DIR, f'line{n:02d}.wav'), dtype='float64')
-        assert sr == SR
-        take = sosfilt(hp, take.mean(1) if take.ndim > 1 else take)   # clear any low rumble
-        x, lead = cut_line(take, windows)
+        x = tone(x, kind)
         x *= 10 ** ((LEVEL_DB + sum(gain)) / 20) / speech_rms(x)
-        j = int(round(at * SR)) - lead             # the speech itself starts on `at`
+        j = int(round(at * SR)) - (s - a)          # the speech itself starts on `at`
         out[j:j + len(x)] += x[:len(out) - j]
-        print(f'{at:7.2f}-{at + (len(x) - lead - .15 * SR) / SR:7.2f}  {text}')
+        end = at + (e - s) / SR
+        spans.append((at, round(end, 3)))
+        print(f'{at:7.2f}-{end:7.2f}  {text}')
+    for (a0, a1), (b0, _) in zip(spans, spans[1:]):
+        assert a1 < b0, f'line ending {a1} runs into the next at {b0}'
     out = limit(out)
     os.makedirs(os.path.join(FINAL, 'audio'), exist_ok=True)
     sf.write(os.path.join(FINAL, 'audio', 'vo.wav'), np.stack([out, out], 1).astype(np.float32), SR, subtype='FLOAT')
-    print('wrote final/audio/vo.wav, peak', round(20 * np.log10(np.abs(out).max()), 1), 'dBFS')
+    with open(os.path.join(FINAL, 'audio', 'vo_spans.json'), 'w') as f:
+        json.dump({'voice': voice, 'spans': spans}, f)
+    print(f'wrote final/audio/vo.wav ({voice}), peak', round(20 * np.log10(np.abs(out).max()), 1), 'dBFS')
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else VOICE)
