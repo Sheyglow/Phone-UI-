@@ -385,9 +385,13 @@ def main():
     # with ramps at the joins. Light and hopeful, dip at the reaction, reflective through the
     # restaurant and bar, build at home, lift at the reveal, fullest over the payoffs and end card.
     sections = [  # (start, end, target dB, ramp-in seconds)
-        (0.0, 7.71, -21, 0.0), (7.71, 13.25, -32, 1.2), (13.25, 21.3, -29, .8), (21.3, 35.88, -26, 1.0), (35.88, 40.33, -30, .8),
-        (40.33, 61.33, -28, 1.0), (61.33, 70.9, -27, 1.0), (70.9, 76.17, -21, 2.0), (76.17, 89.5, -16, .05),
-        (89.5, 101.62, -21, 1.0), (101.62, 109.42, -13, 1.2), (109.42, LENGTH, -11, .05)]
+        # client notes (rev 2): normal level through 0:26 (getting ready, Ethan's text, the date's small
+        # talk); it only lowers once the waitress speaks. After "Hey Ethan!" it comes back up over the
+        # removed chatter. The payoffs no longer carry clip dialogue, so they stay at full level.
+        (0.0, 7.71, -21, 0.0), (7.71, 13.25, -21, 0.0), (13.25, 21.3, -21, 0.0), (21.3, 26.0, -21, 0.0),
+        (26.0, 35.88, -27, .25), (35.88, 40.33, -30, .8), (40.33, 41.95, -28, 1.0), (41.95, 47.6, -22, .5),
+        (47.6, 61.33, -28, .6), (61.33, 70.9, -27, 1.0), (70.9, 76.17, -21, 2.0), (76.17, 89.5, -16, .05),
+        (89.5, 101.62, -16, 1.0), (101.62, 109.42, -13, 1.2), (109.42, LENGTH, -11, .05)]
     mono = mix.mean(1)
     pts = []
     for s0, s1, target, ramp in sections:

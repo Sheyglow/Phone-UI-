@@ -124,6 +124,11 @@ def main():
     place(fx, 6.71, tap(db(-25)), .1)
     place(fx, 6.73, whoosh(.32, 1500, 5000, db(-31), shape=1.4), .2)   # message sent
 
+    # Ethan's text from his friend (rev 2): the phone buzzes on the table as it lights up, then the
+    # receive sound as the message banner appears. Audible over normal-level music, like 1:22-1:24.
+    place(fx, 15.55, vibration(db(-23)), .35)
+    place(fx, 17.0, text_received(db(-22)), .3)
+
     # the shared notification
     place(fx, 69.15, chime(db(-20)), .15)
 
@@ -140,6 +145,32 @@ def main():
     sf.write(os.path.join(FINAL, 'audio', 'sfx.wav'), fx.astype(np.float32), SR, subtype='FLOAT')
     sf.write(os.path.join(FINAL, 'audio', 'roomtone.wav'), room_tone(N, db(-46)).astype(np.float32), SR, subtype='FLOAT')
     print('wrote final/audio/sfx.wav and roomtone.wav')
+
+
+def vibration(level):
+    """A phone buzzing on a wooden table: two pulses of a ~175 Hz motor with table rattle."""
+    out = np.zeros(int(.95 * SR))
+    for start in (0.0, .5):
+        n = int(.36 * SR)
+        t = np.arange(n) / SR
+        motor = np.sign(np.sin(2 * np.pi * 175 * t)) * .6 + np.sin(2 * np.pi * 350 * t) * .3
+        rattle = bp(rng.standard_normal(n), 900, 3200) * (.5 + .5 * np.sign(np.sin(2 * np.pi * 175 * t)))
+        x = lp(motor, 1400, 2) + .35 * rattle
+        env = np.minimum(1, t / .015) * np.minimum(1, (t[-1] - t) / .03)
+        i = int(start * SR)
+        out[i:i + n] += x * env
+    return out / np.abs(out).max() * level
+
+
+def text_received(level):
+    """Incoming message: a short, bright two-note pop (distinct from the Wagon notification chime)."""
+    out = np.zeros(int(.6 * SR))
+    for k, f in enumerate((1318.5, 1760.0)):   # E6 -> A6
+        n = len(out) - int(k * .075 * SR)
+        t = np.arange(n) / SR
+        x = (np.sin(2 * np.pi * f * t) + .3 * np.sin(2 * np.pi * 2 * f * t)) * np.exp(-t / .07) * np.minimum(1, t / .002)
+        out[int(k * .075 * SR):] += x
+    return out / np.abs(out).max() * level
 
 
 def chime_soft(level):
