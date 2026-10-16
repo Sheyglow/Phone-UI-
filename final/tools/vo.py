@@ -1,16 +1,15 @@
-"""Builds the voiceover stem from the ElevenLabs narrator read (voice Darian, eleven_v4).
+"""Builds the voiceover stem from the Higgsfield narrator lines (voice Holden, Seed Audio 1.0).
 
-The script was read in one pass so the tone stays even from line to line. Take C
-(final/audio/vo_lines/take_c.mp3) is the one used: its pauses split it into exactly the 10
-script lines, and it ends cleanly. Each line is cut from the take, levelled to the same speech
-level and placed on its shot (times are on the joined cut's timeline, in seconds).
+Each script line was generated on its own (final/audio/vo_holden/lineNN.wav). For each line the
+speech is found inside a search window (lines 1 and 4 open with a second of garbled engine output
+before a clear pause, and a few files start with a click, so the window starts after those),
+levelled to the same speech level and placed on its shot. A line given as two pieces is joined
+with a shorter pause than the read had. Times are on the joined cut's timeline, in seconds.
 
 Usage: python3 final/tools/vo.py -> final/audio/vo.wav (48 kHz stereo, the picture's length)
 """
 import os
-import subprocess
 
-import imageio_ffmpeg
 import numpy as np
 import soundfile as sf
 from scipy.ndimage import maximum_filter1d
@@ -20,28 +19,32 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FINAL = os.path.dirname(HERE)
 SR = 48000
 LENGTH = 113.7708
-TAKE = os.path.join(FINAL, 'audio', 'vo_lines', 'take_c.mp3')
+LINES_DIR = os.path.join(FINAL, 'audio', 'vo_holden')
 LEVEL_DB = -21.0           # speech RMS of every line (premaster)
+PIECE_GAP = .45            # pause between the pieces of a two-piece line
 
-# (where the line sits in the take, where it starts on the cut, text[, gain dB])
+# (line number, search windows in its file, where it starts on the cut, text[, gain dB])
 LINES = [
-    ((0.10, 2.02), 0.60, 'Everyone wants meaningful connection.'),                  # shot 1, Jessica on the app
-    ((2.42, 4.51), 36.25, 'But in recovery, finding it can feel different.'),       # her reaction close-up
-    ((5.17, 8.19), 42.35, "The places that once felt familiar don't always feel the same anymore."),  # Ethan at the bar
-    ((8.73, 11.53), 64.35, "But that doesn't mean finding connection in recovery doesn't exist."),   # Ethan back home
-    ((12.20, 13.18), 77.00, "That's why there's Wagon."),                           # split-screen reveal, after the logo pops
-    ((13.79, 17.43), 78.90, 'A dedicated place for love, dating, friendship and connection in recovery.'),  # two phones
-    ((17.91, 19.76), 83.20, 'No stigma. No social pressure.'),                      # her match
-    ((20.15, 21.03), 86.30, 'Just people who get it.'),                             # Ethan and Marcus chat
-    ((21.75, 24.68), 98.40, 'Whatever connection means to you, find people who understand the journey.'),  # payoffs
-    ((25.30, 25.75), 109.95, 'Wagon.', 5.0),                                       # end card, after the logo pops
+    (1, [(1.6, 4.4)], 0.60, 'Everyone wants meaningful connection.'),                         # shot 1, Jessica on the app
+    (2, [(0.0, 3.79)], 36.25, 'But in recovery, finding it can feel different.'),             # her reaction close-up
+    (3, [(0.0, 4.51)], 42.35, "The places that once felt familiar don't always feel the same anymore."),  # Ethan at the bar
+    (4, [(2.3, 6.90)], 64.35, "But that doesn't mean finding connection in recovery doesn't exist."),     # Ethan back home
+    (5, [(0.5, 4.0)], 76.85, "That's why there's Wagon."),                                    # split-screen reveal, after the logo pops
+    (6, [(0.3, 5.57)], 78.55, 'A dedicated place for love, dating, friendship and connection in recovery.'),  # two phones
+    (7, [(0.6, 2.4), (2.4, 4.4)], 83.65, 'No stigma. No social pressure.'),                  # her match
+    (8, [(0.0, 1.66)], 86.90, 'Just people who get it.'),                                     # Ethan and Marcus chat
+    (9, [(0.0, 4.63)], 97.80, 'Whatever connection means to you, find people who understand the journey.'),  # payoffs
+    (10, [(0.6, 1.88)], 109.95, 'Wagon.', 5.0),                                               # end card, after the logo pops
 ]
 
 
-def load(path):
-    raw = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), '-v', 'error', '-i', path, '-f', 'f32le', '-ac', '1',
-                          '-ar', str(SR), '-'], capture_output=True, check=True).stdout
-    return np.frombuffer(raw, np.float32).astype(np.float64)
+def speech_span(x, rel_db=-40):
+    """First and last sample of speech in x (frames within rel_db of the loudest frame)."""
+    hop = 240
+    e = np.sqrt(np.convolve(x ** 2, np.ones(2 * hop) / (2 * hop), 'same')[::hop] + 1e-12)
+    d = 20 * np.log10(e)
+    on = np.flatnonzero(d > d.max() + rel_db)
+    return on[0] * hop, min(len(x), (on[-1] + 1) * hop)
 
 
 def speech_rms(x):
@@ -64,21 +67,38 @@ def limit(x, ceiling_db=-4.0, look=.005, release=.08):
     return x * g
 
 
-def main():
-    take = load(TAKE)
-    take = sosfilt(butter(2, 80, 'highpass', fs=SR, output='sos'), take)   # clear any low rumble
-    out = np.zeros(int(round(LENGTH * SR)))
-    pre, post = .06, .18
-    for (s, e), at, text, *gain in LINES:
-        i0, i1 = int((s - pre) * SR), min(len(take), int((e + post) * SR))
-        x = take[i0:i1].copy()
-        f0, f1 = int(.02 * SR), int(.08 * SR)
-        x[:f0] *= np.linspace(0, 1, f0)
+def cut_line(take, windows):
+    """The speech inside each window, padded and faded, joined with PIECE_GAP between pieces."""
+    pre, post = int(.05 * SR), int(.15 * SR)
+    pieces = []
+    for w0, w1 in windows:
+        i0, i1 = int(w0 * SR), min(len(take), int(w1 * SR))
+        s, e = speech_span(take[i0:i1])
+        a, b = max(i0, i0 + s - pre), min(i1, i0 + e + post)
+        x = take[a:b].copy()
+        f0, f1 = min(int(.02 * SR), i0 + s - a), int(.08 * SR)
+        if f0 > 0:
+            x[:f0] *= np.linspace(0, 1, f0)
         x[-f1:] *= np.linspace(1, 0, f1)
+        pieces.append((x, i0 + s - a))             # the piece, and where its speech starts in it
+    out, lead = pieces[0][0], pieces[0][1]
+    for x, _ in pieces[1:]:
+        out = np.concatenate([out, np.zeros(int(PIECE_GAP * SR) - int(.20 * SR)), x])
+    return out, lead
+
+
+def main():
+    hp = butter(2, 80, 'highpass', fs=SR, output='sos')
+    out = np.zeros(int(round(LENGTH * SR)))
+    for n, windows, at, text, *gain in LINES:
+        take, sr = sf.read(os.path.join(LINES_DIR, f'line{n:02d}.wav'), dtype='float64')
+        assert sr == SR
+        take = sosfilt(hp, take.mean(1) if take.ndim > 1 else take)   # clear any low rumble
+        x, lead = cut_line(take, windows)
         x *= 10 ** ((LEVEL_DB + sum(gain)) / 20) / speech_rms(x)
-        j = int(round((at - pre) * SR))
+        j = int(round(at * SR)) - lead             # the speech itself starts on `at`
         out[j:j + len(x)] += x[:len(out) - j]
-        print(f'{at:7.2f}-{at + e - s:7.2f}  {text}')
+        print(f'{at:7.2f}-{at + (len(x) - lead - .15 * SR) / SR:7.2f}  {text}')
     out = limit(out)
     os.makedirs(os.path.join(FINAL, 'audio'), exist_ok=True)
     sf.write(os.path.join(FINAL, 'audio', 'vo.wav'), np.stack([out, out], 1).astype(np.float32), SR, subtype='FLOAT')

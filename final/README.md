@@ -14,7 +14,7 @@ The full-bitrate master (`Wagon_Full_master.mp4`, the joined picture untouched w
 
 ## Voiceover
 
-Narrator: ElevenLabs, voice **Darian** ("Warm Grounded Storyteller"), model eleven_v4. The whole script was read in one pass so the tone stays even, then each line was cut out and placed on its shot (`tools/vo.py`). The music ducks up to 9 dB under it.
+Narrator: **Higgsfield**, voice **Holden**, Seed Audio 1.0, on a paid (Pro) plan, which covers commercial use. Each line was generated on its own (`audio/vo_holden/`), trimmed, levelled and placed on its shot (`tools/vo.py`). The music ducks up to 9 dB under it. `audio/vo_higgsfield/` holds the four full-script candidate reads (Grady, Desmond, Harrison, Holden) the voice was chosen from.
 
 | Time | Shot | Line |
 | --- | --- | --- |
@@ -22,11 +22,11 @@ Narrator: ElevenLabs, voice **Darian** ("Warm Grounded Storyteller"), model elev
 | 0:36.3 | 8, her reaction | But in recovery, finding it can feel different. |
 | 0:42.4 | 12, Ethan at the bar | The places that once felt familiar don't always feel the same anymore. |
 | 1:04.4 | 14, Ethan back home | But that doesn't mean finding connection in recovery doesn't exist. |
-| 1:17.0 | 17, split-screen reveal | That's why there's Wagon. |
-| 1:18.9 | 18, Dating and Friendship Mode | A dedicated place for love, dating, friendship and connection in recovery. |
-| 1:23.2 | 19, her match | No stigma. No social pressure. |
-| 1:26.3 | 20, Ethan and Marcus chat | Just people who get it. |
-| 1:38.4 | 23, both payoffs | Whatever connection means to you, find people who understand the journey. |
+| 1:16.9 | 17, split-screen reveal | That's why there's Wagon. |
+| 1:18.6 | 18, Dating and Friendship Mode | A dedicated place for love, dating, friendship and connection in recovery. |
+| 1:23.7 | 19, her match | No stigma. No social pressure. |
+| 1:26.9 | 20, Ethan and Marcus chat | Just people who get it. |
+| 1:37.8 | 23, both payoffs | Whatever connection means to you, find people who understand the journey. |
 | 1:49.95 | 24, end card | Wagon. |
 
 ## Revision 2 (client's audio notes)
@@ -38,8 +38,8 @@ Narrator: ElevenLabs, voice **Darian** ("Warm Grounded Storyteller"), model elev
 | 0:21–0:25 | The small talk and laughter removed; music carries on and sits under once the waitress speaks (0:26.2) |
 | 0:28.5 | Daniel now says "I'll do an Old Fashion." in his own voice: the over-stressed extra syllable of "Old Fashioned" ("fash-n-**ed**") is cut out and the word ends on his own nasal decay, with the restaurant's air under the gap |
 | 0:42–0:47.6 | The gibberish after "Hey Ethan!" removed; the bar's air carries on and the music comes back up |
-| 1:04–1:08 | The home scene's TV chatter sits low under the voiceover |
-| 1:29.5–end | The coffee clink, Marcus's greeting and the gibberish after it removed; music carries it, with the voiceover |
+| 1:04–1:08.9 | The home scene's TV chatter sits low under the voiceover |
+| 1:29.5–end | The coffee clink, Marcus's greeting and the gibberish after it removed; music carries it until the voiceover returns at 1:37.8 |
 
 ## The shape of the track
 
@@ -62,7 +62,7 @@ The clips carry faint music beds of their own in A♭ / E♭ / F minor. The scor
 - **Music:** composed for this cut and performed with the *VS Chamber Orchestra: Community Edition* samples (Versilian Studios, **CC0**, public domain): upright piano, string sections, contrabass, harp, glockenspiel, timpani and orchestral percussion. No credit or licence fee is required.
 - **Sound design:** synthesised here (taps, key ticks, swipes, the notification chime, transitions, room tone).
 - **Dialogue and ambience:** the clips' own audio.
-- **Voiceover:** generated with ElevenLabs (`audio/vo_lines/take_c.mp3` is the narrator read used; takes A and B are the alternatives). `audio/vo_dialogue/` holds the earlier re-voiced Daniel takes (voice Cole), no longer used.
+- **Voiceover:** generated with Higgsfield on a paid plan (see Voiceover above). No ElevenLabs audio is used anywhere in the mix.
 
 ## Rebuilding
 
@@ -70,6 +70,6 @@ The clips carry faint music beds of their own in A♭ / E♭ / F minor. The scor
 # instrument samples (CC0): https://github.com/sgossner/VSCO-2-CE
 VSCO=/path/to/VSCO-2-CE python3 final/tools/score.py   # -> final/audio/music.wav
 python3 final/tools/sfx.py                              # -> final/audio/sfx.wav, roomtone.wav
-python3 final/tools/vo.py                               # -> final/audio/vo.wav (from audio/vo_lines/take_c.mp3)
+python3 final/tools/vo.py                               # -> final/audio/vo.wav (from audio/vo_holden/line01-10.wav)
 python3 final/tools/mix.py                              # joins parts/part1-8.mp4, mixes, masters -> Wagon_Full_master.mp4, WAVs, stems
 ```

@@ -10,7 +10,7 @@ Stems (48 kHz stereo):
     1:08.95-1:11.75 removed: the clips' two pings (one shared notification is in the SFX)
     1:16.17-1:29.5 removed: app beats are music-only
     1:29.5-end     removed: the coffee clink, Marcus's greeting and the gibberish after it
-- voiceover: final/audio/vo.wav when present (ElevenLabs), else silent.
+- voiceover: final/audio/vo.wav when present (Higgsfield narrator, built by vo.py), else silent.
 - music: final/audio/music.wav, ducked under dialogue and voiceover.
 - sfx: final/audio/sfx.wav, plus room tone wherever the dialogue stem is cut.
 Master: -14 LUFS integrated, -1.5 dBTP. The delivered stems carry the master's gain, so they sum to it.
@@ -161,7 +161,7 @@ def main():
     barair = bed(prod, [(47.62, 50.85)], 6.5)
     place_bed(dlg, barair, 41.9, 47.66, 1.0, fade=.15)
     # the home scene's TV chatter sits low under the voiceover's line 4
-    dlg *= curve([(0, 1), (64.0, 1), (64.3, .3), (67.6, .3), (68.3, 1), (LENGTH, 1)], N)[:, None]
+    dlg *= curve([(0, 1), (64.0, 1), (64.3, .3), (68.2, .3), (68.85, 1), (LENGTH, 1)], N)[:, None]
 
     # room tone where the dialogue stem is cut and no location air replaces it
     rt = curve([(0, 1), (21.2, 1), (21.35, 0), (68.85, 0), (69.0, 1), (71.7, 1), (71.9, 0), (76.05, 0), (76.2, 1),
