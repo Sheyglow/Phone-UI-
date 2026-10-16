@@ -9,6 +9,8 @@ Parts 1–8 joined in order, with a score, sound design, the clips' own dialogue
 | `Wagon_Full_mix_24bit_48k.wav`, `Wagon_Full_mix_16bit_48k.wav` | The master mix as WAV: 48 kHz stereo, −14 LUFS, exactly the picture's length (1:53.77), starting on frame 1 |
 | `stems/Wagon_Stem_*_24bit_48k.wav` | Delivery stems: Music, Dialogue, SFX, Voiceover. They sum to the master (see `stems/README.md`) |
 | `audio/stems/*.flac` | The same four stems before mastering (48 kHz, 24-bit), for anyone re-balancing |
+| `no_vo/Wagon_Music_Bed_NoVO_24bit_48k.wav` (and `.mp3`) | The music bed alone, start to finish, for auditioning narrators: the full arc and the lift at the reveal, dipping under the on-screen dialogue but not under any narrator, at the same level as in the commercial |
+| `no_vo/Wagon_Mix_NoVO_24bit_48k.wav`, `no_vo/Wagon_NoVO_480p.mp4` | The commercial without narration (music, dialogue, sound effects), as audio and as a light video |
 
 The full-bitrate master (`Wagon_Full_master.mp4`, the joined picture untouched with the master audio) is about 230 MB, so it's rebuilt locally rather than committed.
 

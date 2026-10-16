@@ -134,6 +134,19 @@ def under_lines(spans, n, depth_db, attack=.35, release=.9):
     return g
 
 
+def peak_limit(x, ceiling_db=-1.0, look=.01, release=.15):
+    """A lookahead peak limiter on stereo audio: touches only the peaks above the ceiling."""
+    from scipy.ndimage import maximum_filter1d
+    from scipy.signal import filtfilt
+    c = 10 ** (ceiling_db / 20)
+    over = 1 - np.minimum(1, c / np.maximum(np.abs(x).max(1), 1e-9))       # gain reduction each sample needs
+    over = maximum_filter1d(over, int(2 * look * SR))                       # start early, hold through the peak
+    a = np.exp(-1 / (release * SR))
+    over = np.maximum(over, filtfilt([1 - a], [1, -a], over))               # smooth recovery
+    y = x * (1 - over)[:, None]
+    return np.clip(y, -c, c)
+
+
 def master_gain(pre, mas, hop=24):
     """The master's (time-varying) gain over the premix, so stems can carry it and sum to the master."""
     N = min(len(pre), len(mas))
@@ -178,6 +191,7 @@ def main():
     place_bed(dlg, restaurant[int(.94 * SR):], 28.55, 29.06, .9, fade=.06)   # its smoothest stretch; also covers a dropout at 28.86
     barair = bed(prod, [(47.62, 50.85)], 6.5)
     place_bed(dlg, barair, 41.9, 47.66, 1.0, fade=.15)
+    dlg_novo = dlg.copy()                # for the no-narration versions
     # location sound under a narrator line (the bar crowd, the home TV) sits low beneath it
     dlg *= under_lines(spans, N, VO_DLG_DIP_DB)[:, None]
 
@@ -231,6 +245,18 @@ def main():
             sf.write(os.path.join(FINAL, 'stems', f'Wagon_Stem_{name}{tag}_{bits}bit_48k.wav'), y, SR, subtype=sub)
     db = lambda s: 20 * np.log10(np.sqrt((s ** 2).mean()) + 1e-12)
     print('stems summed vs master:', round(db(mas - total) - db(mas), 1), 'dB')
+
+    # no-narration versions, for auditioning narrators: the score with its full arc and its dips under the
+    # on-screen dialogue, but none under the narrator, at the same level as in the commercial (master's gain)
+    music_novo = music * duck_curve(dlg_novo.mean(1), N)[:, None] * 10 ** (1.5 / 20) * g
+    mix_novo = music_novo + (dlg_novo + sfx_stem) * g
+    nv = os.path.join(FINAL, 'no_vo')
+    os.makedirs(nv, exist_ok=True)
+    for name, x in (('Wagon_Music_Bed_NoVO', music_novo), ('Wagon_Mix_NoVO', mix_novo)):
+        x = peak_limit(x)                # without the narrator dips the montage peaks over; only those are held
+        for bits, sub in ((24, 'PCM_24'), (16, 'PCM_16')):
+            sf.write(os.path.join(nv, f'{name}_{bits}bit_48k.wav'), x, SR, subtype=sub)
+    print('no-VO music bed peak', round(20 * np.log10(np.abs(music_novo).max()), 1), 'dBFS')
 
     out = os.path.join(FINAL, 'Wagon_Full_master.mp4')
     run('-y', '-i', video, '-i', master_wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k',
