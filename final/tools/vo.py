@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FINAL = os.path.dirname(HERE)
 SR = 48000
 LENGTH = 113.7708
-VOICE = 'nora'
+VOICE = 'human'
 LEVEL_DB = -21.0           # speech RMS of every line (premaster)
 
 # (line number, start on the cut from the client's timings, tone, text[, gain dB])
@@ -59,6 +59,7 @@ def speech_span(x):
     peak = d.max()
     keep = [(a, b) for a, b in runs
             if (b - a) * hop / SR >= .12 and np.percentile(d[a:b], 90) > peak - 12]   # not a click or a breath
+    keep = keep or runs
     return keep[0][0] * hop, min(len(x), keep[-1][1] * hop)
 
 
