@@ -259,7 +259,8 @@ def main():
     print('no-VO music bed peak', round(20 * np.log10(np.abs(music_novo).max()), 1), 'dBFS')
 
     out = os.path.join(FINAL, 'Wagon_Full_master.mp4')
-    run('-y', '-i', video, '-i', master_wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k',
+    picture = os.path.join(FINAL, 'picture.mp4')        # the cut with Shot 20 made legible (tools/shot20.py)
+    run('-y', '-i', picture if os.path.exists(picture) else video, '-i', master_wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k',
         '-shortest', '-movflags', '+faststart', out)
     print('premaster input', m['input_i'], 'LUFS, TP', m['input_tp'])
     print('wrote', out)
